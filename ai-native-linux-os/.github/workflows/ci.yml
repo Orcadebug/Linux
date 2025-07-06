@@ -1,0 +1,139 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.9'
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install coverage unittest-xml-reporting
+    
+    - name: Run unit tests
+      run: |
+        cd tests
+        python -m coverage run --source="../src" -m unittest discover -s . -p "test_*.py" -v
+    
+    - name: Generate coverage report
+      run: |
+        cd tests
+        python -m coverage report -m
+        python -m coverage xml
+    
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@v3
+      with:
+        file: ./tests/coverage.xml
+        flags: unittests
+        name: codecov-umbrella
+    
+    - name: Run functional tests
+      run: |
+        chmod +x tests/run_tests.sh
+        ./tests/run_tests.sh --functional
+    
+    - name: Run performance tests
+      run: |
+        ./tests/run_tests.sh --performance
+
+  build:
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Set up build environment
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y debootstrap squashfs-tools xorriso isolinux syslinux-utils
+    
+    - name: Build ISO
+      run: |
+        chmod +x build/build_iso.sh
+        # Note: This would need to run in a container or VM with proper privileges
+        # For now, just validate the build script
+        bash -n build/build_iso.sh
+    
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: ai-native-linux-os
+        path: |
+          build/
+          !build/mount/
+          !build/iso/
+        retention-days: 30
+
+  security-scan:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Run security scan
+      uses: github/super-linter@v4
+      env:
+        DEFAULT_BRANCH: main
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        VALIDATE_PYTHON_BLACK: false
+        VALIDATE_PYTHON_FLAKE8: true
+        VALIDATE_PYTHON_ISORT: false
+        VALIDATE_BASH: true
+        VALIDATE_DOCKERFILE: false
+        VALIDATE_JSON: true
+        VALIDATE_YAML: true
+        VALIDATE_MARKDOWN: true
+
+  documentation:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.9'
+    
+    - name: Install documentation dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install sphinx sphinx-rtd-theme
+    
+    - name: Generate documentation
+      run: |
+        # Create basic documentation structure
+        mkdir -p docs/source
+        echo "AI-Native Linux OS Documentation" > docs/source/index.rst
+        echo "=================================" >> docs/source/index.rst
+        echo "" >> docs/source/index.rst
+        echo ".. toctree::" >> docs/source/index.rst
+        echo "   :maxdepth: 2" >> docs/source/index.rst
+        echo "" >> docs/source/index.rst
+        echo "   installation" >> docs/source/index.rst
+        echo "   usage" >> docs/source/index.rst
+        echo "   development" >> docs/source/index.rst
+    
+    - name: Upload documentation
+      uses: actions/upload-artifact@v3
+      with:
+        name: documentation
+        path: docs/
+        retention-days: 30

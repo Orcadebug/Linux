@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm i:*)",
+      "Bash(sudo npm i -g @anthropic-ai/claude-code)",
+      "Bash(mkdir:*)",
+      "Bash(chmod:*)"
+    ],
+    "deny": []
+  }
+}
