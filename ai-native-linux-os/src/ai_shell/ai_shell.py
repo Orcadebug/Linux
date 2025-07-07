@@ -10,6 +10,8 @@ import subprocess
 import click
 import requests
 from pathlib import Path
+import GPUtil
+import re
 
 
 class AIShellAssistant:
@@ -76,13 +78,93 @@ class AIShellAssistant:
                 return True
         return False
     
+    def get_gpu_info(self):
+        """Get GPU information"""
+        try:
+            gpus = GPUtil.getGPUs()
+            return [{
+                "id": gpu.id,
+                "name": gpu.name,
+                "memory_total": gpu.memoryTotal,
+                "memory_used": gpu.memoryUsed,
+                "memory_free": gpu.memoryFree,
+                "utilization": gpu.load * 100,
+                "temperature": gpu.temperature
+            } for gpu in gpus]
+        except:
+            return []
+
+    def get_cuda_version(self):
+        """Detect CUDA version"""
+        try:
+            result = subprocess.run(['nvcc', '--version'], capture_output=True, text=True)
+            if result.returncode == 0:
+                version_match = re.search(r'release (\d+\.\d+)', result.stdout)
+                if version_match:
+                    return version_match.group(1)
+        except:
+            pass
+        return None
+
+    def translate_ai_ml_commands(self, query_lower):
+        """Handle AI/ML specific commands"""
+        # Environment setup commands
+        if "setup pytorch" in query_lower:
+            gpu_info = self.get_gpu_info()
+            cuda_version = self.get_cuda_version()
+            if gpu_info and cuda_version:
+                return f"""# Setting up PyTorch with CUDA {cuda_version}\npip3 install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu{cuda_version.replace('.', '')}\npython3 -c \"import torch; print(f'PyTorch: {{torch.__version__}}'); print(f'CUDA available: {{torch.cuda.is_available()}}')\"\n"""
+            else:
+                return """# Setting up PyTorch (CPU-only)\npip3 install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu\npython3 -c \"import torch; print(f'PyTorch: {torch.__version__}')\"\n"""
+        elif "setup tensorflow" in query_lower:
+            gpu_info = self.get_gpu_info()
+            if gpu_info:
+                return """# Setting up TensorFlow with GPU support\npip3 install tensorflow[and-cuda]\npython3 -c \"import tensorflow as tf; print(f'TensorFlow: {tf.__version__}'); print(f'GPU: {len(tf.config.list_physical_devices('GPU'))} devices')\"\n"""
+            else:
+                return """# Setting up TensorFlow (CPU-only)\npip3 install tensorflow\npython3 -c \"import tensorflow as tf; print(f'TensorFlow: {tf.__version__}')\"\n"""
+        elif "gpu status" in query_lower or "gpu info" in query_lower:
+            return "nvidia-smi"
+        elif "gpu memory" in query_lower:
+            return "nvidia-smi --query-gpu=memory.used,memory.total --format=csv"
+        elif "gpu processes" in query_lower:
+            return "nvidia-smi pmon -c 1"
+        elif "monitor gpu" in query_lower:
+            return "watch -n 1 nvidia-smi"
+        elif "create environment" in query_lower:
+            words = query_lower.split()
+            env_name = "ai_env"
+            if "for" in words:
+                idx = words.index("for")
+                if idx + 1 < len(words):
+                    env_name = f"{words[idx + 1]}_env"
+            return f"""# Create AI/ML environment '{env_name}'\npython3 -m venv {env_name}\nsource {env_name}/bin/activate\npip install --upgrade pip setuptools wheel\necho \"Environment '{env_name}' created! Activate with: source {env_name}/bin/activate\"\n"""
+        elif "start training" in query_lower:
+            gpu_info = self.get_gpu_info()
+            if gpu_info:
+                return """# Start training with GPU monitoring\n# Template for single GPU:\nCUDA_VISIBLE_DEVICES=0 python3 train.py\n# Template for multiple GPUs:\npython3 -m torch.distributed.launch --nproc_per_node=2 train.py\n"""
+            else:
+                return "python3 train.py  # Start training (CPU)"
+        elif "monitor training" in query_lower:
+            return """# Monitor training progress\n# Terminal 1 - TensorBoard:\ntensorboard --logdir=runs --port=6006\n# Terminal 2 - GPU monitoring:\nwatch -n 1 nvidia-smi\n"""
+        elif "download" in query_lower and "dataset" in query_lower:
+            if "cifar" in query_lower:
+                return """# Download CIFAR-10 dataset\npython3 -c \"\nimport torchvision.datasets as datasets\ndatasets.CIFAR10(root='./data', train=True, download=True)\ndatasets.CIFAR10(root='./data', train=False, download=True)\nprint('CIFAR-10 downloaded to ./data/')\n\"\n"""
+            elif "mnist" in query_lower:
+                return """# Download MNIST dataset\npython3 -c \"\nimport torchvision.datasets as datasets\ndatasets.MNIST(root='./data', train=True, download=True)\ndatasets.MNIST(root='./data', train=False, download=True)\nprint('MNIST downloaded to ./data/')\n\"\n"""
+        elif "start jupyter" in query_lower:
+            return "jupyter lab --ip=0.0.0.0 --port=8888 --no-browser"
+        elif "install jupyter" in query_lower:
+            return """# Install Jupyter Lab with AI/ML extensions\npip3 install jupyterlab ipywidgets\npip3 install jupyterlab-git jupyterlab-lsp\njupyter lab build\n"""
+        return None
+
     def translate_natural_language(self, query):
-        """Translate natural language to shell command"""
+        """Enhanced translation with AI/ML support"""
         context = self.get_context()
-        
-        # Simple rule-based translation for common commands
         query_lower = query.lower()
-        
+        ai_ml_command = self.translate_ai_ml_commands(query_lower)
+        if ai_ml_command:
+            return ai_ml_command
+        # Simple rule-based translation for common commands
         if "list files" in query_lower or "show files" in query_lower:
             return "ls -la"
         elif "current directory" in query_lower or "where am i" in query_lower:

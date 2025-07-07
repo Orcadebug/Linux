@@ -15,6 +15,7 @@ from datetime import datetime
 from pathlib import Path
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
+import subprocess
 
 
 class QuestLogDaemon:
@@ -193,6 +194,53 @@ class QuestLogDaemon:
             self.logger.info("Daemon interrupted by user")
         
         self.logger.info("Quest Log Daemon stopped")
+
+    def detect_ai_ml_activity(self, command):
+        """Detect AI/ML related activities"""
+        ai_ml_indicators = {
+            'training': ['python', 'train.py', 'main.py', 'run.py'],
+            'jupyter': ['jupyter', 'notebook', 'lab'],
+            'gpu_usage': ['nvidia-smi', 'nvcc', 'cuda'],
+            'package_install': ['pip install', 'conda install'],
+            'environment': ['conda activate', 'source', 'venv'],
+            'model_ops': ['torch.save', 'model.save', 'checkpoint']
+        }
+        detected_activities = []
+        command_lower = command.lower()
+        for activity, indicators in ai_ml_indicators.items():
+            if any(indicator in command_lower for indicator in indicators):
+                detected_activities.append(activity)
+        return detected_activities
+
+    def log_ai_ml_event(self, event_type, data):
+        """Log AI/ML specific events"""
+        self.log_event(f"ai_ml_{event_type}", "ai_ml_tracker", data)
+
+    def track_model_training(self, command, working_dir):
+        """Track model training sessions"""
+        if any(indicator in command.lower() for indicator in ['train', 'fit', 'epoch']):
+            training_data = {
+                'command': command,
+                'working_directory': working_dir,
+                'start_time': datetime.now().isoformat(),
+                'gpu_info': self.get_gpu_status(),
+                'environment_vars': {
+                    'CUDA_VISIBLE_DEVICES': os.getenv('CUDA_VISIBLE_DEVICES'),
+                    'PYTHONPATH': os.getenv('PYTHONPATH')
+                }
+            }
+            self.log_ai_ml_event('training_started', training_data)
+
+    def get_gpu_status(self):
+        """Get current GPU status for logging"""
+        try:
+            result = subprocess.run(['nvidia-smi', '--query-gpu=name,memory.used,memory.total,utilization.gpu', '--format=csv,noheader,nounits'], 
+                                  capture_output=True, text=True)
+            if result.returncode == 0:
+                return result.stdout.strip()
+        except:
+            pass
+        return "No GPU info available"
 
 
 def main():

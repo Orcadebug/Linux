@@ -16,6 +16,7 @@ from pathlib import Path
 import numpy as np
 from sklearn.ensemble import IsolationForest
 from sklearn.preprocessing import StandardScaler
+import GPUtil
 
 
 class AIKernelMonitor:
@@ -71,8 +72,27 @@ class AIKernelMonitor:
         self.logger.info(f"Received signal {signum}, shutting down...")
         self.running = False
     
+    def get_gpu_metrics(self):
+        """Collect GPU metrics"""
+        gpu_metrics = []
+        try:
+            gpus = GPUtil.getGPUs()
+            for gpu in gpus:
+                gpu_metrics.append({
+                    'gpu_id': gpu.id,
+                    'gpu_name': gpu.name,
+                    'gpu_load': gpu.load * 100,
+                    'gpu_memory_used': gpu.memoryUsed,
+                    'gpu_memory_total': gpu.memoryTotal,
+                    'gpu_memory_percent': (gpu.memoryUsed / gpu.memoryTotal) * 100,
+                    'gpu_temperature': gpu.temperature
+                })
+        except Exception as e:
+            self.logger.warning(f"Could not get GPU metrics: {e}")
+        return gpu_metrics
+
     def get_system_metrics(self):
-        """Collect current system metrics"""
+        """Collect current system metrics including GPU"""
         metrics = {
             'timestamp': datetime.now().isoformat(),
             'cpu_percent': psutil.cpu_percent(interval=1),
@@ -82,7 +102,8 @@ class AIKernelMonitor:
             'network_sent': 0,
             'network_recv': 0,
             'process_count': len(psutil.pids()),
-            'boot_time': psutil.boot_time()
+            'boot_time': psutil.boot_time(),
+            'gpu_metrics': self.get_gpu_metrics()  # Add GPU metrics
         }
         
         # Get network statistics
@@ -153,6 +174,39 @@ class AIKernelMonitor:
                 'message': f"High system load: {load_avg_5min:.2f} (CPU count: {cpu_count})"
             })
         
+        return alerts
+    
+    def check_gpu_thresholds(self, gpu_metrics):
+        """Check GPU-specific thresholds"""
+        alerts = []
+        for gpu in gpu_metrics:
+            if gpu['gpu_load'] > 95:
+                alerts.append({
+                    'type': 'gpu_high_utilization',
+                    'gpu_id': gpu['gpu_id'],
+                    'value': gpu['gpu_load'],
+                    'threshold': 95,
+                    'severity': 'warning',
+                    'message': f"GPU {gpu['gpu_id']} high utilization: {gpu['gpu_load']:.1f}%"
+                })
+            if gpu['gpu_memory_percent'] > 90:
+                alerts.append({
+                    'type': 'gpu_memory_high',
+                    'gpu_id': gpu['gpu_id'],
+                    'value': gpu['gpu_memory_percent'],
+                    'threshold': 90,
+                    'severity': 'critical',
+                    'message': f"GPU {gpu['gpu_id']} memory high: {gpu['gpu_memory_percent']:.1f}%"
+                })
+            if gpu['gpu_temperature'] > 80:
+                alerts.append({
+                    'type': 'gpu_temperature_high',
+                    'gpu_id': gpu['gpu_id'],
+                    'value': gpu['gpu_temperature'],
+                    'threshold': 80,
+                    'severity': 'warning',
+                    'message': f"GPU {gpu['gpu_id']} temperature high: {gpu['gpu_temperature']}°C"
+                })
         return alerts
     
     def update_anomaly_detector(self, metrics):
@@ -238,6 +292,38 @@ class AIKernelMonitor:
         
         return list(set(suggestions))  # Remove duplicates
     
+    def generate_ai_ml_suggestions(self, alerts):
+        """Generate AI/ML specific suggestions"""
+        suggestions = []
+        for alert in alerts:
+            if alert['type'] == 'gpu_memory_high':
+                suggestions.append({
+                    'alert_type': alert['type'],
+                    'suggestion': f"GPU {alert['gpu_id']} memory is high. Consider:\n- Reducing batch size\n- Using gradient accumulation\n- Enabling mixed precision training\n- Clearing GPU cache: torch.cuda.empty_cache()",
+                    'commands': [
+                        "nvidia-smi pmon -c 1",
+                        "python3 -c 'import torch; torch.cuda.empty_cache(); print(\"GPU cache cleared\")'"
+                    ]
+                })
+            elif alert['type'] == 'gpu_high_utilization':
+                suggestions.append({
+                    'alert_type': alert['type'],
+                    'suggestion': f"GPU {alert['gpu_id']} is at high utilization. This might be normal during training.",
+                    'commands': [
+                        "nvidia-smi pmon -c 1"
+                    ]
+                })
+            elif alert['type'] == 'cpu_high' and any('python' in str(proc.get('name', '')) for proc in alert.get('top_processes', [])):
+                suggestions.append({
+                    'alert_type': alert['type'],
+                    'suggestion': "High CPU usage detected with Python processes. Consider:\n- Using more CPU workers for data loading\n- Optimizing data preprocessing\n- Moving computation to GPU",
+                    'commands': [
+                        "ps aux | grep python",
+                        "htop"
+                    ]
+                })
+        return suggestions
+    
     def handle_alerts(self, alerts, suggestions):
         """Handle system alerts"""
         for alert in alerts:
@@ -298,6 +384,10 @@ class AIKernelMonitor:
                 # Check thresholds
                 alerts = self.check_thresholds(metrics)
                 
+                # Check GPU thresholds
+                gpu_alerts = self.check_gpu_thresholds(metrics['gpu_metrics'])
+                alerts.extend(gpu_alerts)
+                
                 # Check for anomalies
                 anomaly_alert = self.update_anomaly_detector(metrics)
                 if anomaly_alert:
@@ -316,7 +406,8 @@ class AIKernelMonitor:
                 
                 if filtered_alerts:
                     suggestions = self.generate_suggestions(filtered_alerts)
-                    self.handle_alerts(filtered_alerts, suggestions)
+                    ai_ml_suggestions = self.generate_ai_ml_suggestions(filtered_alerts)
+                    self.handle_alerts(filtered_alerts, suggestions + ai_ml_suggestions)
                 
                 # Wait for next check
                 time.sleep(self.config['check_interval'])
