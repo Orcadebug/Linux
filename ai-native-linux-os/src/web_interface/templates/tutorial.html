@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Tutorial - Learn AI in 5 Minutes</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #333;
+        }
+        
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        .tutorial-card {
+            background: white;
+            border-radius: 15px;
+            padding: 40px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            text-align: center;
+        }
+        
+        .step-indicator {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 30px;
+        }
+        
+        .step {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: #e2e8f0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 10px;
+            font-weight: bold;
+            transition: all 0.3s ease;
+        }
+        
+        .step.active {
+            background: #4299e1;
+            color: white;
+        }
+        
+        .step.completed {
+            background: #48bb78;
+            color: white;
+        }
+        
+        .tutorial-content {
+            margin: 30px 0;
+            min-height: 300px;
+        }
+        
+        .tutorial-content h2 {
+            font-size: 2.5em;
+            margin-bottom: 20px;
+            color: #4a5568;
+        }
+        
+        .tutorial-content p {
+            font-size: 1.2em;
+            line-height: 1.6;
+            margin-bottom: 20px;
+            color: #666;
+        }
+        
+        .example-box {
+            background: #f7fafc;
+            border-left: 4px solid #4299e1;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+            text-align: left;
+        }
+        
+        .navigation {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 30px;
+        }
+        
+        .nav-btn {
+            background: #4299e1;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-size: 1em;
+            cursor: pointer;
+            transition: background 0.3s ease;
+        }
+        
+        .nav-btn:hover {
+            background: #3182ce;
+        }
+        
+        .nav-btn:disabled {
+            background: #e2e8f0;
+            color: #a0aec0;
+            cursor: not-allowed;
+        }
+        
+        .start-project-btn {
+            background: linear-gradient(135deg, #48bb78, #38a169);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 10px;
+            font-size: 1.2em;
+            cursor: pointer;
+            margin: 20px 10px;
+        }
+        
+        .back-home {
+            background: #667eea;
+            color: white;
+            text-decoration: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            display: inline-block;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a href="/" class="back-home">← Back to Dashboard</a>
+        
+        <div class="tutorial-card">
+            <div class="step-indicator">
+                <div class="step active" id="step1">1</div>
+                <div class="step" id="step2">2</div>
+                <div class="step" id="step3">3</div>
+            </div>
+            
+            <div class="tutorial-content" id="tutorialContent">
+                <h2>🤖 What is AI?</h2>
+                <p>AI is like teaching a computer to think and learn, just like how you learned to recognize cats by seeing many cat photos!</p>
+                
+                <div class="example-box">
+                    <strong>🐱 Example:</strong><br>
+                    Show computer 1000 cat photos → Computer learns → Now it can spot cats in new photos!
+                </div>
+                
+                <p>It's that simple! AI learns from examples, just like humans do.</p>
+            </div>
+            
+            <div class="navigation">
+                <button class="nav-btn" id="prevBtn" onclick="changeStep(-1)" disabled>Previous</button>
+                <button class="nav-btn" id="nextBtn" onclick="changeStep(1)">Next</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentStep = 1;
+        const totalSteps = 3;
+        
+        const tutorialSteps = {
+            1: {
+                title: '🤖 What is AI?',
+                content: `
+                    <p>AI is like teaching a computer to think and learn, just like how you learned to recognize cats by seeing many cat photos!</p>
+                    
+                    <div class="example-box">
+                        <strong>🐱 Example:</strong><br>
+                        Show computer 1000 cat photos → Computer learns → Now it can spot cats in new photos!
+                    </div>
+                    
+                    <p>It's that simple! AI learns from examples, just like humans do.</p>
+                `
+            },
+            2: {
+                title: '🎓 How do we teach computers?',
+                content: `
+                    <p>We show them lots of examples, let them practice, and correct their mistakes. Just like learning to ride a bike!</p>
+                    
+                    <div class="example-box">
+                        <strong>📧 Teaching computer to detect spam emails:</strong><br>
+                        1. Show 10,000 spam emails + 10,000 good emails<br>
+                        2. Computer learns patterns<br>
+                        3. Now it can spot spam automatically!
+                    </div>
+                    
+                    <p>The more examples we show, the smarter the computer becomes!</p>
+                `
+            },
+            3: {
+                title: '🚀 Ready to build your first AI?',
+                content: `
+                    <p>Let's start with something fun - teaching your computer to recognize photos!</p>
+                    
+                    <div class="example-box">
+                        <strong>🖼️ Your first project:</strong><br>
+                        We'll use 50,000 practice photos of animals, cars, and planes. Your computer will learn to tell them apart in just minutes!
+                    </div>
+                    
+                    <p>Don't worry - our AI assistant will write all the code for you. You just need to follow the simple steps!</p>
+                    
+                    <button class="start-project-btn" onclick="startFirstProject()">
+                        🎯 Start Photo Recognition Project
+                    </button>
+                    <button class="start-project-btn" onclick="goToDashboard()">
+                        🏠 Browse All Projects
+                    </button>
+                `
+            }
+        };
+        
+        function changeStep(direction) {
+            const newStep = currentStep + direction;
+            
+            if (newStep < 1 || newStep > totalSteps) {
+                return;
+            }
+            
+            // Update step indicator
+            document.getElementById(`step${currentStep}`).classList.remove('active');
+            if (direction > 0) {
+                document.getElementById(`step${currentStep}`).classList.add('completed');
+            } else {
+                document.getElementById(`step${newStep + 1}`).classList.remove('completed');
+            }
+            
+            currentStep = newStep;
+            document.getElementById(`step${currentStep}`).classList.add('active');
+            
+            // Update content
+            const step = tutorialSteps[currentStep];
+            document.getElementById('tutorialContent').innerHTML = `
+                <h2>${step.title}</h2>
+                ${step.content}
+            `;
+            
+            // Update navigation buttons
+            document.getElementById('prevBtn').disabled = currentStep === 1;
+            document.getElementById('nextBtn').disabled = currentStep === totalSteps;
+            
+            if (currentStep === totalSteps) {
+                document.getElementById('nextBtn').style.display = 'none';
+            } else {
+                document.getElementById('nextBtn').style.display = 'block';
+            }
+        }
+        
+        function startFirstProject() {
+            // Redirect to dashboard with image recognition project
+            window.location.href = '/?start=image_recognition';
+        }
+        
+        function goToDashboard() {
+            window.location.href = '/';
+        }
+        
+        // Auto-advance tutorial every 10 seconds (optional)
+        // setInterval(() => {
+        //     if (currentStep < totalSteps) {
+        //         changeStep(1);
+        //     }
+        // }, 10000);
+    </script>
+</body>
+</html> 

@@ -31,6 +31,58 @@ ai-native-linux-os/
 - **Week 3**: Integration and polish
 - **Week 4**: Testing and validation
 
-## Getting Started
+## Quick Start
 
-See individual component README files for detailed setup instructions.
+### Option 1: Visual Interface (Recommended for Beginners)
+
+1. **Clone the repository:**
+   ```bash
+   git clone https://github.com/Orcadebug/Linux.git
+   cd Linux/ai-native-linux-os
+   ```
+
+2. **Install dependencies:**
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+3. **Start the web interface:**
+   ```bash
+   python3 src/web_interface/app.py
+   ```
+
+4. **Open your browser and go to:**
+   ```
+   http://localhost:8080
+   ```
+
+5. **Follow the interactive tutorial and start building AI projects!**
+
+### Option 2: Command Line Interface (For Advanced Users)
+
+1. **Run individual components:**
+   ```bash
+   # AI Shell Assistant
+   python3 src/ai_shell/ai_shell.py
+
+   # Quest Log Daemon
+   python3 src/quest_log/quest_log_daemon.py
+
+   # Kernel Monitor
+   python3 src/kernel_monitor/kernel_monitor.py
+
+   # Self-Healing Service
+   python3 src/self_healing/self_healing.py
+   ```
+
+2. **Run tests:**
+   ```bash
+   cd tests
+   bash run_tests.sh
+   ```
+
+## Target Users
+
+- **Primary**: AI/ML developers seeking streamlined environment setup
+- **Secondary**: Non-technical users wanting to learn AI through guided projects
+- **Tertiary**: System administrators interested in AI-enhanced monitoring
