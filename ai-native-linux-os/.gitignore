@@ -1,0 +1,73 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*.so
+
+# Virtual environments
+image_ai/
+pytorch_env/
+.venv/
+venv/
+env/
+
+# Dataset and generated data
+practice_data/
+*.tar.gz
+*.zip
+*.h5
+*.pth
+*.pt
+*.ckpt
+*.npz
+*.npy
+
+# Build artifacts
+build/
+*.iso
+*.img
+
+# System files
+.DS_Store
+Thumbs.db
+
+# Logs and temporary files
+*.log
+*.tmp
+*.swp
+*.swo
+
+# Test outputs and test code
+tests/
+*.pytest_cache/
+*.coverage
+.coverage.*
+htmlcov/
+.cache/
+nosetests.xml
+coverage.xml
+*.prof
+
+# Jupyter/IPython
+.ipynb_checkpoints/
+
+# User-specific config/history
+*.history
+*.sqlite3
+*.db
+
+# Ignore large downloads
+Downloads/
+*.mp4
+*.avi
+*.mov
+
+# Ignore secret files (if any)
+.env
+.env.*
+
+# Ignore OS-specific files
+ehthumbs.db
+Icon?
+
+# Claude AI config
+.claude/ 
