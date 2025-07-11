@@ -373,7 +373,7 @@ print('🎯 Try analyzing movie reviews, tweets, or customer feedback!')
             ]
         }
         return suggestions.get(current_project, ["Keep experimenting!", "Try a new AI project"])
-
+    
     def translate_natural_language(self, query):
         """Enhanced translation with beginner support"""
         context = self.get_context()

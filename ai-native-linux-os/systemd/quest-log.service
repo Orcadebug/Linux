@@ -1,0 +1,15 @@
+[Unit]
+Description=Quest Log System Daemon
+After=network.target
+Wants=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/ai-native-linux
+ExecStart=/opt/ai-native-linux/venv/bin/python /opt/ai-native-linux/src/quest_log/quest_log_daemon.py
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target 

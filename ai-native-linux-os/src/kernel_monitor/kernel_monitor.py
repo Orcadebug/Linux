@@ -90,7 +90,7 @@ class AIKernelMonitor:
         except Exception as e:
             self.logger.warning(f"Could not get GPU metrics: {e}")
         return gpu_metrics
-
+    
     def get_system_metrics(self):
         """Collect current system metrics including GPU"""
         metrics = {

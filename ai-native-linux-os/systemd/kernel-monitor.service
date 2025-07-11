@@ -1,0 +1,15 @@
+[Unit]
+Description=AI Kernel Monitor with LLM Analysis
+After=network.target ollama.service
+Wants=network.target ollama.service
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/ai-native-linux
+ExecStart=/opt/ai-native-linux/venv/bin/python /opt/ai-native-linux/src/kernel_monitor/kernel_monitor.py
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target 
