@@ -74,16 +74,30 @@ useradd -r -s /bin/false -d /var/lib/ollama ollama || true
 mkdir -p /var/lib/ollama
 chown ollama:ollama /var/lib/ollama
 
-# Install SystemD service for Ollama
-cp systemd/ollama.service /etc/systemd/system/
-systemctl daemon-reload
-systemctl enable ollama.service
-systemctl start ollama.service
+# --- Hardware Scanning and Model Selection ---
+log "Scanning hardware to select best LLM model..."
+RAM_GB=$(awk '/MemTotal/ {printf "%.0f", $2/1024/1024}' /proc/meminfo)
+CPU_CORES=$(nproc)
 
-# Pull lightweight LLM model
-log "Downloading lightweight LLM model (this may take a few minutes)..."
+MODEL="phi3"  # Default
+if [ "$RAM_GB" -lt 4 ]; then
+    MODEL="tinyllm"
+    log "Detected $RAM_GB GB RAM: Using TinyLLM (1.1GB, fastest, lowest resource)"
+elif [ "$RAM_GB" -lt 8 ]; then
+    MODEL="phi3"
+    log "Detected $RAM_GB GB RAM: Using Phi-3 (2.2GB, good balance)"
+elif [ "$RAM_GB" -lt 16 ]; then
+    MODEL="mistral"
+    log "Detected $RAM_GB GB RAM: Using Mistral (4.1GB, higher quality)"
+else
+    MODEL="llama3"
+    log "Detected $RAM_GB GB RAM: Using Llama 3 (4.7GB, best quality)"
+fi
+
+# Pull the selected model
+log "Pulling Ollama model: $MODEL (this may take a few minutes) ..."
 sleep 5  # Wait for Ollama to start
-sudo -u ollama ollama pull phi3
+sudo -u ollama ollama pull $MODEL
 
 # 4. SYSTEMD SERVICES INTEGRATION
 log "Installing SystemD services..."
