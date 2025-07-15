@@ -153,6 +153,10 @@ class MainAIController:
             hardware_info = await self.hardware_scanner.scan_system()
             self.logger.info(f"Hardware capabilities: {hardware_info}")
             
+            # Download recommended models
+            download_result = await self.hardware_scanner.download_recommended_models(hardware_info['llm_config'])
+            self.logger.info(f"Model download result: {download_result}")
+            
             # Initialize agents based on hardware capabilities
             await self._initialize_agents(hardware_info)
             
