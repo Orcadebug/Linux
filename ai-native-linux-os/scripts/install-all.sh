@@ -86,10 +86,7 @@ install_dependencies() {
         build-essential \
         linux-headers-generic \
         libsqlite3-dev \
-        sqlite3 \
-        psutil \
-        click \
-        requests
+        sqlite3
     
     log "System dependencies installed"
 }
@@ -170,7 +167,7 @@ setup_python_environment() {
     
     # Install Python dependencies
     pip install --upgrade pip
-    pip install -r requirements.txt
+    pip install -r "$PROJECT_ROOT/requirements.txt"
     
     # Additional dependencies from various scripts
     pip install ollama transformers torch psutil click requests aiofiles aiohttp cryptography
