@@ -177,3 +177,92 @@ python3 -u ai_terminal_gui.py
 **Made with ❤️ for the AI-Native Linux OS project**
 
 *The future of human-computer interaction is conversational!* 
+
+# AI-Native Linux OS: Multi-Agent Terminal
+
+## 🚀 Quick Install (One-Liner)
+
+**To install everything (clone, dependencies, LLM, systemd service) in one go:**
+
+```bash
+git clone https://github.com/Orcadebug/Linux.git && \
+cd Linux/ai-native-linux-os && \
+chmod +x scripts/install-ai-terminal.sh && \
+./scripts/install-ai-terminal.sh && \
+curl -fsSL https://ollama.com/install.sh | sh && \
+ollama pull phi3:mini && \
+sudo ./scripts/start-ai-orchestrator.sh install-service && \
+sudo systemctl start ai-orchestrator
+```
+
+---
+
+## 🛠️ Full Manual Install Steps
+
+1. **Clone the Repository**
+   ```bash
+   git clone https://github.com/Orcadebug/Linux.git
+   cd Linux/ai-native-linux-os
+   ```
+
+2. **Install System Dependencies**
+   ```bash
+   sudo apt update
+   sudo apt install -y python3 python3-venv python3-pip git build-essential
+   # For GPU/LLM acceleration (optional):
+   sudo apt install -y nvidia-driver nvidia-cuda-toolkit
+   ```
+
+3. **Run the Install Script**
+   ```bash
+   chmod +x scripts/install-ai-terminal.sh
+   ./scripts/install-ai-terminal.sh
+   ```
+   Or manually:
+   ```bash
+   python3 -m venv venv
+   source venv/bin/activate
+   pip install --upgrade pip
+   pip install -r requirements.txt
+   ```
+
+4. **Install Ollama and LLM Models**
+   ```bash
+   curl -fsSL https://ollama.com/install.sh | sh
+   ollama pull phi3:mini
+   ollama pull llama3
+   ```
+
+5. **Install as a System Service**
+   ```bash
+   sudo ./scripts/start-ai-orchestrator.sh install-service
+   sudo systemctl start ai-orchestrator
+   sudo systemctl enable ai-orchestrator
+   ```
+
+6. **Launch the GUI**
+   ```bash
+   cd src/ai_shell
+   python3 ai_terminal_gui.py
+   ```
+
+---
+
+## 🧑‍💻 Updating
+
+```bash
+cd Linux
+git pull
+cd ai-native-linux-os
+source venv/bin/activate
+pip install -r requirements.txt
+sudo systemctl restart ai-orchestrator
+```
+
+---
+
+## 📝 Notes
+- The orchestrator runs as a background service (systemd)
+- GUI can be launched from any user session
+- All agents are coordinated and hardware-aware
+- For advanced usage, see the scripts and config files in the repo 
