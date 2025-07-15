@@ -189,7 +189,7 @@ class SoftwareInstallAgent(BaseAgent):
     
     async def _process_task_with_llm(self, task) -> Dict:
         """Process software installation task using LLM with safety checks"""
-        context = {
+            context = {
             'package_manager': self.primary_manager,
             'available_managers': self.package_managers,
             'install_templates': list(self.install_templates.keys()),
@@ -222,7 +222,7 @@ Be specific about commands and safety measures. Only suggest safe operations.
         if response:
             # Parse LLM response and execute safely
             return await self._execute_llm_plan(response, task)
-        else:
+            else:
             # Fallback to rules
             return await self._process_task_with_rules(task)
     
@@ -250,20 +250,20 @@ Be specific about commands and safety measures. Only suggest safe operations.
                 if self._requires_confirmation(task.command):
                     confirm = input(f"Confirm software operation: {task.command}? (y/n): ")
                     if confirm.lower() != 'y':
-                        return {
-                            'success': False,
+            return {
+                'success': False,
                             'result': 'Operation cancelled by user',
                             'method': 'rules'
                         }
-                
+        
                 result = await handler(task.command)
                 return {
                     'success': True,
                     'result': result,
                     'method': 'rules'
                 }
-            else:
-                return {
+        else:
+        return {
                     'success': False,
                     'error': 'No matching rule pattern found',
                     'method': 'rules'
@@ -416,7 +416,7 @@ Be specific about commands and safety measures. Only suggest safe operations.
                         self.stats['total_install_time'] += install_time
                         
                         return f"Successfully installed {package_name} in {install_time:.1f}s"
-                    else:
+        else:
                         self.stats['failed_installations'] += 1
                         return f"Installation completed but {package_name} verification failed"
                 else:
@@ -424,7 +424,7 @@ Be specific about commands and safety measures. Only suggest safe operations.
                     return f"Failed to install {package_name}: {result['stderr']}"
             else:
                 return f"Dry run: Would install {package_name}"
-                
+            
         except Exception as e:
             self.stats['failed_installations'] += 1
             return f"Installation error: {str(e)}"
@@ -449,11 +449,11 @@ Be specific about commands and safety measures. Only suggest safe operations.
                 if result['returncode'] == 0:
                     self.stats['packages_removed'] += 1
                     return f"Successfully removed {package_name}"
-                else:
+            else:
                     return f"Failed to remove {package_name}: {result['stderr']}"
             else:
                 return f"Dry run: Would remove {package_name}"
-                
+            
         except Exception as e:
             return f"Removal error: {str(e)}"
     
@@ -467,7 +467,7 @@ Be specific about commands and safety measures. Only suggest safe operations.
                 
                 if result['returncode'] == 0:
                     return "Successfully updated package lists"
-                else:
+            else:
                     return f"Failed to update package lists: {result['stderr']}"
             else:
                 return "Dry run: Would update package lists"
@@ -490,7 +490,7 @@ Be specific about commands and safety measures. Only suggest safe operations.
                     return f"Failed to upgrade system: {result['stderr']}"
             else:
                 return "Dry run: Would upgrade system packages"
-                
+            
         except Exception as e:
             return f"Upgrade error: {str(e)}"
     
@@ -510,7 +510,7 @@ Be specific about commands and safety measures. Only suggest safe operations.
                 return f"Search results for '{search_term}':\n" + '\n'.join(lines)
             else:
                 return f"Search failed: {result['stderr']}"
-                
+            
         except Exception as e:
             return f"Search error: {str(e)}"
     
@@ -524,11 +524,11 @@ Be specific about commands and safety measures. Only suggest safe operations.
                 # Count packages and show first 20
                 lines = result['stdout'].split('\n')
                 package_count = len([line for line in lines if line.strip()])
-                
+            
                 return f"Found {package_count} installed packages (showing first 20):\n" + '\n'.join(lines[:20])
             else:
                 return f"Failed to list packages: {result['stderr']}"
-                
+            
         except Exception as e:
             return f"List error: {str(e)}"
     
@@ -545,7 +545,7 @@ Be specific about commands and safety measures. Only suggest safe operations.
                     version_result = await self._run_command(f"{package_name} --version", timeout=10)
                     if version_result['returncode'] == 0:
                         return f"{package_name} is installed: {version_result['stdout'].strip()}"
-                    else:
+                else:
                         return f"{package_name} is installed but version check failed"
                 except:
                     return f"{package_name} is installed"
@@ -594,7 +594,7 @@ Be specific about commands and safety measures. Only suggest safe operations.
                     return f"Docker installation completed but verification failed"
             else:
                 return f"Dry run: Would install Docker\n" + '\n'.join(results)
-                
+            
         except Exception as e:
             self.stats['failed_installations'] += 1
             return f"Docker installation error: {str(e)}"
@@ -636,7 +636,7 @@ Be specific about commands and safety measures. Only suggest safe operations.
                     return f"Node.js installation completed but verification failed"
             else:
                 return f"Dry run: Would install Node.js\n" + '\n'.join(results)
-                
+            
         except Exception as e:
             self.stats['failed_installations'] += 1
             return f"Node.js installation error: {str(e)}"
@@ -678,7 +678,7 @@ Be specific about commands and safety measures. Only suggest safe operations.
                     return f"Python installation completed but verification failed"
             else:
                 return f"Dry run: Would install Python\n" + '\n'.join(results)
-                
+            
         except Exception as e:
             self.stats['failed_installations'] += 1
             return f"Python installation error: {str(e)}"
@@ -716,7 +716,7 @@ Be specific about commands and safety measures. Only suggest safe operations.
                     return f"Java installation completed but verification failed"
             else:
                 return f"Dry run: Would install Java\n" + '\n'.join(results)
-                
+            
         except Exception as e:
             self.stats['failed_installations'] += 1
             return f"Java installation error: {str(e)}"
@@ -758,14 +758,14 @@ Be specific about commands and safety measures. Only suggest safe operations.
                     return f"Git installation completed but verification failed"
             else:
                 return f"Dry run: Would install Git\n" + '\n'.join(results)
-                
+            
         except Exception as e:
             self.stats['failed_installations'] += 1
             return f"Git installation error: {str(e)}"
     
     def get_stats(self) -> Dict:
         """Get agent statistics"""
-        return {
+                return {
             'agent': self.name,
             'stats': self.stats,
             'config': self.config,

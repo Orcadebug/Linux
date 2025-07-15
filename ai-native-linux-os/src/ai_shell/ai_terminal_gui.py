@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 """
-AI Terminal GUI - A conversational interface for the AI-Native Linux OS
+AI Terminal GUI - ChatGPT-like interface for the AI-Native Linux OS
+Integrates with the specialized mixture of agents architecture
 """
 
 import tkinter as tk
-from tkinter import ttk, scrolledtext, messagebox
+from tkinter import ttk, scrolledtext, messagebox, font
 import threading
 import queue
 import time
@@ -21,16 +22,14 @@ try:
     from ai_orchestrator.main_ai_controller import MainAIController
     ORCHESTRATOR_AVAILABLE = True
 except ImportError:
-    # Fallback to original AI shell for compatibility
-    from ai_shell import AIShellAssistant
     ORCHESTRATOR_AVAILABLE = False
-
+    print("Warning: AI Orchestrator not available")
 
 class AITerminalGUI:
     def __init__(self, root):
         self.root = root
-        self.root.title("🤖 AI-Native Linux OS - Multi-Agent Interface")
-        self.root.geometry("900x700")
+        self.root.title("🤖 AI-Native Linux OS Hub - Mixture of Agents")
+        self.root.geometry("1000x700")
         self.root.configure(bg='#2c3e50')
         
         # Initialize AI system
@@ -45,383 +44,353 @@ class AITerminalGUI:
         # Start message processing
         self.process_messages()
         
-        # Show welcome and status
+        # Show welcome message
         self.show_welcome_message()
         
-        # Setup auto-refresh for agent status
-        self.setup_status_refresh()
+        # Agent status tracking
+        self.agent_status_update_interval = 5000  # 5 seconds
+        self.update_agent_status()
         
     def init_ai_system(self):
-        """Initialize the AI system (orchestrator or fallback)"""
+        """Initialize the AI system"""
         if ORCHESTRATOR_AVAILABLE:
-            try:
-                self.ai_controller = MainAIController()
-                self.ai_mode = "orchestrator"
-                self.agent_status = {}
-            except Exception as e:
-                print(f"Failed to initialize AI orchestrator: {e}")
-                self.ai_controller = AIShellAssistant()
-                self.ai_mode = "fallback"
+            self.ai_controller = MainAIController()
+            self.ai_available = True
         else:
-            self.ai_controller = AIShellAssistant()
-            self.ai_mode = "fallback"
-            if hasattr(self.ai_controller, 'load_conversation'):
-                self.ai_controller.load_conversation()
+            self.ai_controller = None
+            self.ai_available = False
     
     def setup_gui(self):
-        """Setup the main GUI layout"""
-        # Main container
+        """Setup the ChatGPT-like GUI"""
+        # Create main frame
         main_frame = tk.Frame(self.root, bg='#2c3e50')
         main_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
         
-        # Header with title and status
-        self.setup_header(main_frame)
-        
-        # Agent status panel (only for orchestrator mode)
-        if self.ai_mode == "orchestrator":
-            self.setup_agent_status_panel(main_frame)
-        
-        # Chat area
-        self.setup_chat_area(main_frame)
-        
-        # Input area
-        self.setup_input_area(main_frame)
-        
-        # Control buttons
-        self.setup_control_buttons(main_frame)
-    
-    def setup_header(self, parent):
-        """Setup the header with title and mode indicator"""
-        header_frame = tk.Frame(parent, bg='#2c3e50')
-        header_frame.pack(fill=tk.X, pady=(0, 10))
-        
         # Title
         title_label = tk.Label(
-            header_frame, 
-            text="🤖 AI-Native Linux OS",
-            font=('Ubuntu', 16, 'bold'),
-            bg='#2c3e50', 
+            main_frame,
+            text="🤖 AI-Native Linux OS Hub",
+            font=('Arial', 16, 'bold'),
+            bg='#2c3e50',
             fg='#ecf0f1'
         )
-        title_label.pack(side=tk.LEFT)
+        title_label.pack(pady=(0, 10))
         
-        # Mode indicator
-        mode_text = "Multi-Agent Mode" if self.ai_mode == "orchestrator" else "Compatibility Mode"
-        mode_color = "#27ae60" if self.ai_mode == "orchestrator" else "#f39c12"
+        # Create notebook for tabs
+        self.notebook = ttk.Notebook(main_frame)
+        self.notebook.pack(fill=tk.BOTH, expand=True)
         
-        self.mode_label = tk.Label(
-            header_frame,
-            text=f"• {mode_text}",
-            font=('Ubuntu', 10),
-            bg='#2c3e50',
-            fg=mode_color
-        )
-        self.mode_label.pack(side=tk.RIGHT)
+        # Chat tab
+        self.setup_chat_tab()
+        
+        # Agent status tab
+        self.setup_agent_status_tab()
+        
+        # Settings tab
+        self.setup_settings_tab()
     
-    def setup_agent_status_panel(self, parent):
-        """Setup agent status panel for orchestrator mode"""
-        status_frame = tk.LabelFrame(
-            parent,
-            text="Agent Status",
-            font=('Ubuntu', 10, 'bold'),
-            bg='#34495e',
-            fg='#ecf0f1',
-            relief=tk.RAISED,
-            bd=2
-        )
-        status_frame.pack(fill=tk.X, pady=(0, 10))
+    def setup_chat_tab(self):
+        """Setup the main chat interface tab"""
+        chat_frame = tk.Frame(self.notebook, bg='#34495e')
+        self.notebook.add(chat_frame, text='💬 Chat')
         
-        # Create status indicators for each agent
-        self.agent_indicators = {}
-        agents = [
-            ("system_agent", "System Monitor", "🔍"),
-            ("file_management_agent", "File Manager", "📁"),
-            ("software_install_agent", "Software Installer", "📦"),
-            ("shell_assistant_agent", "Shell Assistant", "💻"),
-            ("activity_tracker_agent", "Activity Tracker", "📊")
-        ]
+        # Chat display area
+        chat_display_frame = tk.Frame(chat_frame, bg='#34495e')
+        chat_display_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
         
-        indicators_frame = tk.Frame(status_frame, bg='#34495e')
-        indicators_frame.pack(fill=tk.X, padx=10, pady=5)
-        
-        for i, (agent_id, agent_name, icon) in enumerate(agents):
-            agent_frame = tk.Frame(indicators_frame, bg='#34495e')
-            agent_frame.grid(row=0, column=i, padx=5, sticky='ew')
-            
-            # Agent icon and name
-            tk.Label(
-                agent_frame,
-                text=f"{icon} {agent_name}",
-                font=('Ubuntu', 8),
-                bg='#34495e',
-                fg='#ecf0f1'
-            ).pack()
-            
-            # Status indicator
-            status_indicator = tk.Label(
-                agent_frame,
-                text="●",
-                font=('Ubuntu', 12),
-                bg='#34495e',
-                fg='#95a5a6'  # Default gray
-            )
-            status_indicator.pack()
-            
-            self.agent_indicators[agent_id] = status_indicator
-        
-        # Configure grid weights
-        for i in range(len(agents)):
-            indicators_frame.grid_columnconfigure(i, weight=1)
-    
-    def setup_chat_area(self, parent):
-        """Setup the main chat conversation area"""
-        chat_frame = tk.Frame(parent, bg='#2c3e50')
-        chat_frame.pack(fill=tk.BOTH, expand=True, pady=(0, 10))
-        
-        # Chat display with scrollbar
+        # Chat history display (ChatGPT-like)
         self.chat_display = scrolledtext.ScrolledText(
-            chat_frame,
+            chat_display_frame,
             wrap=tk.WORD,
-            font=('Ubuntu Mono', 11),
-            bg='#34495e',
+            state='disabled',
+            bg='#2c3e50',
             fg='#ecf0f1',
+            font=('Consolas', 11),
             insertbackground='#ecf0f1',
             selectbackground='#3498db',
-            relief=tk.FLAT,
-            padx=10,
-            pady=10
+            selectforeground='#ecf0f1'
         )
         self.chat_display.pack(fill=tk.BOTH, expand=True)
         
-        # Configure text tags for different message types
-        self.chat_display.tag_configure("user", foreground="#3498db", font=('Ubuntu Mono', 11, 'bold'))
-        self.chat_display.tag_configure("ai", foreground="#2ecc71", font=('Ubuntu Mono', 11, 'bold'))
-        self.chat_display.tag_configure("system", foreground="#f39c12", font=('Ubuntu Mono', 10))
-        self.chat_display.tag_configure("command", foreground="#e74c3c", font=('Ubuntu Mono', 10, 'bold'))
-        self.chat_display.tag_configure("success", foreground="#27ae60")
-        self.chat_display.tag_configure("warning", foreground="#f39c12")
-        self.chat_display.tag_configure("error", foreground="#e74c3c")
-        self.chat_display.tag_configure("agent", foreground="#9b59b6", font=('Ubuntu Mono', 10, 'italic'))
-    
-    def setup_input_area(self, parent):
-        """Setup the user input area"""
-        input_frame = tk.Frame(parent, bg='#2c3e50')
-        input_frame.pack(fill=tk.X, pady=(0, 10))
+        # Input area
+        input_frame = tk.Frame(chat_frame, bg='#34495e')
+        input_frame.pack(fill=tk.X, padx=10, pady=(0, 10))
         
-        # Input label
-        tk.Label(
+        # Input box
+        self.input_entry = tk.Entry(
             input_frame,
-            text="💬 Talk to your AI assistants:",
-            font=('Ubuntu', 10, 'bold'),
-            bg='#2c3e50',
-            fg='#ecf0f1'
-        ).pack(anchor='w', pady=(0, 5))
-        
-        # Input entry with send button
-        entry_frame = tk.Frame(input_frame, bg='#2c3e50')
-        entry_frame.pack(fill=tk.X)
-        
-        self.user_input = tk.Entry(
-            entry_frame,
-            font=('Ubuntu', 12),
+            font=('Consolas', 11),
             bg='#ecf0f1',
             fg='#2c3e50',
-            relief=tk.FLAT,
-            bd=0
+            insertbackground='#2c3e50'
         )
-        self.user_input.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 10))
-        self.user_input.bind('<Return>', self.handle_user_input)
-        self.user_input.focus()
+        self.input_entry.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 10))
+        self.input_entry.bind("<Return>", self.send_query)
+        self.input_entry.bind("<Up>", self.history_up)
+        self.input_entry.bind("<Down>", self.history_down)
         
         # Send button
         self.send_button = tk.Button(
-            entry_frame,
+            input_frame,
             text="Send",
-            font=('Ubuntu', 10, 'bold'),
+            command=self.send_query,
             bg='#3498db',
             fg='white',
+            font=('Arial', 10, 'bold'),
             relief=tk.FLAT,
-            bd=0,
-            padx=20,
-            command=self.handle_user_input
+            padx=20
         )
         self.send_button.pack(side=tk.RIGHT)
-    
-    def setup_control_buttons(self, parent):
-        """Setup control buttons"""
-        control_frame = tk.Frame(parent, bg='#2c3e50')
-        control_frame.pack(fill=tk.X)
         
-        # Emergency stop button (only for orchestrator mode)
-        if self.ai_mode == "orchestrator":
-            self.emergency_button = tk.Button(
-                control_frame,
-                text="🛑 Emergency Stop",
-                font=('Ubuntu', 10, 'bold'),
-                bg='#e74c3c',
-                fg='white',
+        # Quick action buttons
+        quick_actions_frame = tk.Frame(chat_frame, bg='#34495e')
+        quick_actions_frame.pack(fill=tk.X, padx=10, pady=(0, 10))
+        
+        quick_actions = [
+            ("📊 System Info", "show system information"),
+            ("📁 Organize Files", "organize my files"),
+            ("🔄 Update System", "update the system"),
+            ("🎵 Play Music", "play music"),
+            ("📧 Check Email", "check my email"),
+            ("⏰ Set Reminder", "set a reminder"),
+            ("🔍 Troubleshoot", "diagnose system issues"),
+            ("🧹 Cleanup", "cleanup duplicate files")
+        ]
+        
+        for i, (text, command) in enumerate(quick_actions):
+            btn = tk.Button(
+                quick_actions_frame,
+                text=text,
+                command=lambda cmd=command: self.quick_action(cmd),
+                bg='#95a5a6',
+                fg='#2c3e50',
+                font=('Arial', 9),
                 relief=tk.FLAT,
-                bd=0,
-                padx=15,
-                command=self.emergency_stop
+                padx=10,
+                pady=5
             )
-            self.emergency_button.pack(side=tk.LEFT, padx=(0, 10))
+            btn.grid(row=i//4, column=i%4, padx=5, pady=5, sticky='ew')
         
-        # Clear chat button
-        clear_button = tk.Button(
-            control_frame,
-            text="🗑️ Clear Chat",
-            font=('Ubuntu', 10),
-            bg='#95a5a6',
-            fg='white',
-            relief=tk.FLAT,
-            bd=0,
-            padx=15,
-            command=self.clear_chat
+        # Configure grid weights
+        for i in range(4):
+            quick_actions_frame.grid_columnconfigure(i, weight=1)
+        
+        # Status bar
+        self.status_bar = tk.Label(
+            chat_frame,
+            text="Ready",
+            bg='#2c3e50',
+            fg='#ecf0f1',
+            font=('Arial', 9),
+            anchor='w'
         )
-        clear_button.pack(side=tk.LEFT, padx=(0, 10))
+        self.status_bar.pack(fill=tk.X, padx=10, pady=(0, 5))
         
-        # Agent status button (only for orchestrator mode)
-        if self.ai_mode == "orchestrator":
-            status_button = tk.Button(
-                control_frame,
-                text="📊 Agent Status",
-                font=('Ubuntu', 10),
-                bg='#9b59b6',
-                fg='white',
-                relief=tk.FLAT,
-                bd=0,
-                padx=15,
-                command=self.show_agent_details
-            )
-            status_button.pack(side=tk.LEFT)
+        # Command history
+        self.command_history = []
+        self.history_index = -1
+    
+    def setup_agent_status_tab(self):
+        """Setup the agent status monitoring tab"""
+        status_frame = tk.Frame(self.notebook, bg='#34495e')
+        self.notebook.add(status_frame, text='🤖 Agents')
+        
+        # Agent status display
+        self.agent_status_text = scrolledtext.ScrolledText(
+            status_frame,
+            wrap=tk.WORD,
+            state='disabled',
+            bg='#2c3e50',
+            fg='#ecf0f1',
+            font=('Consolas', 10)
+        )
+        self.agent_status_text.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+        
+        # Agent control buttons
+        control_frame = tk.Frame(status_frame, bg='#34495e')
+        control_frame.pack(fill=tk.X, padx=10, pady=(0, 10))
+        
+        tk.Button(
+            control_frame,
+            text="Refresh Status",
+            command=self.refresh_agent_status,
+            bg='#3498db',
+            fg='white',
+            font=('Arial', 10),
+            relief=tk.FLAT,
+            padx=15
+        ).pack(side=tk.LEFT, padx=5)
+        
+        tk.Button(
+            control_frame,
+            text="Unload All Agents",
+            command=self.unload_all_agents,
+            bg='#e74c3c',
+            fg='white',
+            font=('Arial', 10),
+            relief=tk.FLAT,
+            padx=15
+        ).pack(side=tk.LEFT, padx=5)
+    
+    def setup_settings_tab(self):
+        """Setup the settings tab"""
+        settings_frame = tk.Frame(self.notebook, bg='#34495e')
+        self.notebook.add(settings_frame, text='⚙️ Settings')
+        
+        # Settings content
+        settings_label = tk.Label(
+            settings_frame,
+            text="AI-Native Linux OS Settings",
+            font=('Arial', 14, 'bold'),
+            bg='#34495e',
+            fg='#ecf0f1'
+        )
+        settings_label.pack(pady=20)
+        
+        # Model selection
+        model_frame = tk.Frame(settings_frame, bg='#34495e')
+        model_frame.pack(fill=tk.X, padx=20, pady=10)
+        
+        tk.Label(
+            model_frame,
+            text="Central LLM Model:",
+            bg='#34495e',
+            fg='#ecf0f1',
+            font=('Arial', 11)
+        ).pack(side=tk.LEFT)
+        
+        self.model_var = tk.StringVar(value="phi3:mini")
+        model_combo = ttk.Combobox(
+            model_frame,
+            textvariable=self.model_var,
+            values=["phi3:mini", "phi3", "tinyllm", "mistral"],
+            state="readonly"
+        )
+        model_combo.pack(side=tk.RIGHT, padx=10)
+        
+        # Auto-unload settings
+        auto_unload_frame = tk.Frame(settings_frame, bg='#34495e')
+        auto_unload_frame.pack(fill=tk.X, padx=20, pady=10)
+        
+        self.auto_unload_var = tk.BooleanVar(value=True)
+        tk.Checkbutton(
+            auto_unload_frame,
+            text="Auto-unload dormant agents after 5 minutes",
+            variable=self.auto_unload_var,
+            bg='#34495e',
+            fg='#ecf0f1',
+            font=('Arial', 11),
+            selectcolor='#2c3e50'
+        ).pack(side=tk.LEFT)
     
     def show_welcome_message(self):
-        """Show welcome message based on mode"""
-        if self.ai_mode == "orchestrator":
-            self.add_system_message("🚀 Welcome to AI-Native Linux OS!")
-            self.add_system_message("Multi-Agent System Active:")
-            self.add_system_message("• 🔍 System Agent - Hardware monitoring & diagnostics")
-            self.add_system_message("• 📁 File Manager - Smart file organization")
-            self.add_system_message("• 📦 Software Installer - Complex software installations")
-            self.add_system_message("• 💻 Shell Assistant - Natural language commands")
-            self.add_system_message("• 📊 Activity Tracker - Usage patterns & insights")
-            self.add_system_message("")
-            self.add_system_message("Try saying:")
-            self.add_system_message("• 'Check system health'")
-            self.add_system_message("• 'Organize my downloads folder'")
-            self.add_system_message("• 'Install Docker'")
-            self.add_system_message("• 'Show me my activity patterns'")
+        """Show welcome message"""
+        if self.ai_available:
+            welcome = self.ai_controller.get_welcome_message()
         else:
-            self.add_system_message("👋 Hi! I'm your AI assistant (Compatibility Mode)")
-            self.add_system_message("Try saying things like:")
-            self.add_system_message("• 'Show me my files'")
-            self.add_system_message("• 'What's taking up disk space?'")
-            self.add_system_message("• 'Create a folder called Photos'")
-            self.add_system_message("• 'Help me learn AI'")
+            welcome = "⚠️ AI Controller not available. Please check installation."
+        
+        self.append_to_chat("AI", welcome, "#3498db")
     
-    def setup_status_refresh(self):
-        """Setup automatic status refresh for agent indicators"""
-        if self.ai_mode == "orchestrator":
-            self.refresh_agent_status()
-            # Schedule next refresh
-            self.root.after(5000, self.setup_status_refresh)  # Refresh every 5 seconds
+    def append_to_chat(self, sender, message, color="#ecf0f1"):
+        """Append message to chat display"""
+        self.chat_display.configure(state='normal')
+        
+        # Add timestamp
+        timestamp = time.strftime("%H:%M:%S")
+        
+        # Add sender and message
+        self.chat_display.insert(tk.END, f"[{timestamp}] {sender}: ", "sender")
+        self.chat_display.insert(tk.END, f"{message}\n\n", "message")
+        
+        # Configure tags for styling
+        self.chat_display.tag_configure("sender", foreground=color, font=('Arial', 10, 'bold'))
+        self.chat_display.tag_configure("message", foreground="#ecf0f1", font=('Consolas', 10))
+        
+        self.chat_display.configure(state='disabled')
+        self.chat_display.see(tk.END)
     
-    def refresh_agent_status(self):
-        """Refresh agent status indicators"""
-        if self.ai_mode != "orchestrator":
+    def send_query(self, event=None):
+        """Send user query to AI"""
+        query = self.input_entry.get().strip()
+        if not query:
             return
         
-        def update_status():
-            try:
-                # Get agent status asynchronously
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
-                
-                status = loop.run_until_complete(self.ai_controller.get_system_status())
-                
-                # Update indicators on main thread
-                self.root.after(0, lambda: self.update_status_indicators(status))
-                
-            except Exception as e:
-                print(f"Failed to refresh agent status: {e}")
-        
-        # Run status update in background thread
-        threading.Thread(target=update_status, daemon=True).start()
-    
-    def update_status_indicators(self, status):
-        """Update agent status indicators in the GUI"""
-        if 'agents' not in status:
-            return
-        
-        agent_status = status['agents']
-        
-        for agent_id, indicator in self.agent_indicators.items():
-            if agent_id in agent_status:
-                agent_info = agent_status[agent_id]
-                state = agent_info.get('state', 'unknown')
-                
-                # Set color based on state
-                if state == 'idle':
-                    color = '#27ae60'  # Green
-                elif state == 'processing':
-                    color = '#f39c12'  # Orange
-                elif state == 'error':
-                    color = '#e74c3c'  # Red
-                else:
-                    color = '#95a5a6'  # Gray
-                
-                indicator.config(fg=color)
-    
-    def handle_user_input(self, event=None):
-        """Handle user input and send to AI system"""
-        user_text = self.user_input.get().strip()
-        if not user_text:
-            return
+        # Add to history
+        self.command_history.append(query)
+        self.history_index = len(self.command_history)
         
         # Clear input
-        self.user_input.delete(0, tk.END)
+        self.input_entry.delete(0, tk.END)
         
-        # Add user message to chat
-        self.add_user_message(user_text)
+        # Show user message
+        self.append_to_chat("You", query, "#2ecc71")
         
-        # Process in background thread
-        def process_input():
-            try:
-                if self.ai_mode == "orchestrator":
-                    # Use new orchestrator
-                    loop = asyncio.new_event_loop()
-                    asyncio.set_event_loop(loop)
-                    
-                    response = loop.run_until_complete(
-                        self.ai_controller.process_user_request(user_text)
-                    )
-                    
-                    self.message_queue.put(('ai_response', response))
-                else:
-                    # Use fallback assistant
-                    response = self.ai_controller.process_input(user_text)
-                    self.message_queue.put(('ai_response', response))
-                    
-            except Exception as e:
-                self.message_queue.put(('error', f"Error processing request: {e}"))
+        # Update status
+        self.status_bar.config(text="Processing...")
+        self.send_button.config(state='disabled')
         
-        # Start processing thread
-        threading.Thread(target=process_input, daemon=True).start()
-        
-        # Show processing indicator
-        self.add_system_message("🤔 Processing your request...")
+        # Process query in background thread
+        threading.Thread(target=self.process_query_async, args=(query,), daemon=True).start()
+    
+    def process_query_async(self, query):
+        """Process query asynchronously"""
+        try:
+            if self.ai_available:
+                # Run the async method in a new event loop
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+                try:
+                    response = loop.run_until_complete(self.ai_controller.classify_and_route(query))
+                finally:
+                    loop.close()
+            else:
+                response = "❌ AI Controller not available. Please check installation."
+            
+            # Send response back to main thread
+            self.message_queue.put(('response', response))
+            
+        except Exception as e:
+            self.message_queue.put(('error', str(e)))
+    
+    def quick_action(self, command):
+        """Execute quick action"""
+        self.input_entry.delete(0, tk.END)
+        self.input_entry.insert(0, command)
+        self.send_query()
+    
+    def history_up(self, event):
+        """Navigate up in command history"""
+        if self.command_history and self.history_index > 0:
+            self.history_index -= 1
+            self.input_entry.delete(0, tk.END)
+            self.input_entry.insert(0, self.command_history[self.history_index])
+    
+    def history_down(self, event):
+        """Navigate down in command history"""
+        if self.command_history and self.history_index < len(self.command_history) - 1:
+            self.history_index += 1
+            self.input_entry.delete(0, tk.END)
+            self.input_entry.insert(0, self.command_history[self.history_index])
+        elif self.history_index >= len(self.command_history) - 1:
+            self.history_index = len(self.command_history)
+            self.input_entry.delete(0, tk.END)
     
     def process_messages(self):
         """Process messages from background threads"""
         try:
             while True:
-                msg_type, content = self.message_queue.get_nowait()
+                message_type, data = self.message_queue.get_nowait()
                 
-                if msg_type == 'ai_response':
-                    self.handle_ai_response(content)
-                elif msg_type == 'error':
-                    self.add_error_message(content)
+                if message_type == 'response':
+                    self.append_to_chat("AI", data, "#3498db")
+                    self.status_bar.config(text="Ready")
+                    self.send_button.config(state='normal')
+                    
+                elif message_type == 'error':
+                    self.append_to_chat("AI", f"❌ Error: {data}", "#e74c3c")
+                    self.status_bar.config(text="Error")
+                    self.send_button.config(state='normal')
                     
         except queue.Empty:
             pass
@@ -429,186 +398,81 @@ class AITerminalGUI:
         # Schedule next check
         self.root.after(100, self.process_messages)
     
-    def handle_ai_response(self, response):
-        """Handle AI response and display appropriately"""
-        if self.ai_mode == "orchestrator":
-            # Handle orchestrator response
-            if isinstance(response, dict):
-                if 'coordinated_response' in response:
-                    self.add_ai_message(response['coordinated_response'])
-                
-                if 'agent_responses' in response:
-                    for agent_id, agent_response in response['agent_responses'].items():
-                        if agent_response and 'status' in agent_response:
-                            self.add_agent_message(agent_id, agent_response)
-                
-                if 'command' in response:
-                    self.add_command_message(response['command'])
-                    if 'output' in response:
-                        self.add_command_output(response['output'])
-            else:
-                self.add_ai_message(str(response))
-        else:
-            # Handle fallback assistant response
-            if isinstance(response, dict):
-                if 'command' in response:
-                    self.add_command_message(response['command'])
-                if 'explanation' in response:
-                    self.add_ai_message(response['explanation'])
-                if 'output' in response:
-                    self.add_command_output(response['output'])
-            else:
-                self.add_ai_message(str(response))
-    
-    def add_user_message(self, message):
-        """Add user message to chat"""
-        self.chat_display.insert(tk.END, f"You: {message}\n", "user")
-        self.chat_display.see(tk.END)
-    
-    def add_ai_message(self, message):
-        """Add AI response to chat"""
-        self.chat_display.insert(tk.END, f"🤖 AI: {message}\n", "ai")
-        self.chat_display.see(tk.END)
-    
-    def add_agent_message(self, agent_id, response):
-        """Add agent-specific message to chat"""
-        agent_names = {
-            'system_agent': '🔍 System',
-            'file_management_agent': '📁 File Manager',
-            'software_install_agent': '📦 Installer',
-            'shell_assistant_agent': '💻 Shell',
-            'activity_tracker_agent': '📊 Tracker'
-        }
-        
-        agent_name = agent_names.get(agent_id, agent_id)
-        
-        if isinstance(response, dict) and 'message' in response:
-            message = response['message']
-        else:
-            message = str(response)
-        
-        self.chat_display.insert(tk.END, f"{agent_name}: {message}\n", "agent")
-        self.chat_display.see(tk.END)
-    
-    def add_system_message(self, message):
-        """Add system message to chat"""
-        self.chat_display.insert(tk.END, f"ℹ️  {message}\n", "system")
-        self.chat_display.see(tk.END)
-    
-    def add_command_message(self, command):
-        """Add command to chat"""
-        self.chat_display.insert(tk.END, f"💻 Command: {command}\n", "command")
-        self.chat_display.see(tk.END)
-    
-    def add_command_output(self, output):
-        """Add command output to chat"""
-        if output.strip():
-            self.chat_display.insert(tk.END, f"Output: {output}\n", "success")
-            self.chat_display.see(tk.END)
-    
-    def add_error_message(self, message):
-        """Add error message to chat"""
-        self.chat_display.insert(tk.END, f"❌ Error: {message}\n", "error")
-        self.chat_display.see(tk.END)
-    
-    def emergency_stop(self):
-        """Emergency stop all AI agents"""
-        if self.ai_mode != "orchestrator":
-            return
-        
-        try:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-            
-            loop.run_until_complete(self.ai_controller.emergency_stop())
-            
-            self.add_system_message("🛑 Emergency stop activated - All agents stopped")
-            
-            # Update button state
-            self.emergency_button.config(
-                text="🟢 Restart Agents",
-                bg='#27ae60',
-                command=self.restart_agents
-            )
-            
-        except Exception as e:
-            self.add_error_message(f"Failed to execute emergency stop: {e}")
-    
-    def restart_agents(self):
-        """Restart all AI agents"""
-        if self.ai_mode != "orchestrator":
-            return
-        
-        try:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-            
-            loop.run_until_complete(self.ai_controller.start_all_agents())
-            
-            self.add_system_message("🟢 All agents restarted")
-            
-            # Update button state
-            self.emergency_button.config(
-                text="🛑 Emergency Stop",
-                bg='#e74c3c',
-                command=self.emergency_stop
-            )
-            
-        except Exception as e:
-            self.add_error_message(f"Failed to restart agents: {e}")
-    
-    def clear_chat(self):
-        """Clear the chat display"""
-        self.chat_display.delete(1.0, tk.END)
-        self.show_welcome_message()
-    
-    def show_agent_details(self):
-        """Show detailed agent status in a popup"""
-        if self.ai_mode != "orchestrator":
-            return
-        
-        def get_details():
+    def update_agent_status(self):
+        """Update agent status display"""
+        if self.ai_available:
             try:
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
+                status = self.ai_controller.get_agent_status()
                 
-                status = loop.run_until_complete(self.ai_controller.get_system_status())
+                status_text = "🤖 Agent Status Report\n"
+                status_text += "=" * 50 + "\n\n"
                 
-                # Create popup window
-                self.root.after(0, lambda: self.create_status_popup(status))
+                status_text += f"📊 Summary:\n"
+                status_text += f"• Total Agents: {status['total_agents']}\n"
+                status_text += f"• Memory Usage: {status['memory_usage']}\n\n"
+                
+                status_text += f"✅ Loaded Agents ({len(status['loaded_agents'])}):\n"
+                if status['loaded_agents']:
+                    for agent in status['loaded_agents']:
+                        status_text += f"  • {agent.replace('_', ' ').title()}\n"
+                else:
+                    status_text += "  • None\n"
+                
+                status_text += f"\n💤 Dormant Agents ({len(status['dormant_agents'])}):\n"
+                if status['dormant_agents']:
+                    for agent in status['dormant_agents']:
+                        status_text += f"  • {agent.replace('_', ' ').title()}\n"
+                else:
+                    status_text += "  • None\n"
+                
+                status_text += f"\n🔧 Agent Capabilities:\n"
+                status_text += f"• System Management: Install/update software, manage services\n"
+                status_text += f"• File & Storage: Organize files, cleanup, storage analysis\n"
+                status_text += f"• Media: Playback control, library management\n"
+                status_text += f"• Communication: Email, messages, notifications\n"
+                status_text += f"• Personal Assistant: Reminders, scheduling, tasks\n"
+                status_text += f"• Troubleshooting: Diagnose and fix issues\n"
+                status_text += f"• Shell: Command execution, process management\n"
+                status_text += f"• Activity: Usage tracking, pattern analysis\n"
+                
+                # Update display
+                self.agent_status_text.configure(state='normal')
+                self.agent_status_text.delete(1.0, tk.END)
+                self.agent_status_text.insert(1.0, status_text)
+                self.agent_status_text.configure(state='disabled')
                 
             except Exception as e:
-                self.root.after(0, lambda: messagebox.showerror("Error", f"Failed to get agent status: {e}"))
+                self.agent_status_text.configure(state='normal')
+                self.agent_status_text.delete(1.0, tk.END)
+                self.agent_status_text.insert(1.0, f"Error getting agent status: {e}")
+                self.agent_status_text.configure(state='disabled')
         
-        threading.Thread(target=get_details, daemon=True).start()
+        # Schedule next update
+        self.root.after(self.agent_status_update_interval, self.update_agent_status)
     
-    def create_status_popup(self, status):
-        """Create agent status popup window"""
-        popup = tk.Toplevel(self.root)
-        popup.title("Agent Status Details")
-        popup.geometry("600x400")
-        popup.configure(bg='#2c3e50')
-        
-        # Status text area
-        status_text = scrolledtext.ScrolledText(
-            popup,
-            wrap=tk.WORD,
-            font=('Ubuntu Mono', 10),
-            bg='#34495e',
-            fg='#ecf0f1'
-        )
-        status_text.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
-        
-        # Format and display status
-        status_text.insert(tk.END, json.dumps(status, indent=2))
-        status_text.config(state=tk.DISABLED)
-
+    def refresh_agent_status(self):
+        """Manually refresh agent status"""
+        self.update_agent_status()
+    
+    def unload_all_agents(self):
+        """Unload all agents to free memory"""
+        if self.ai_available:
+            try:
+                asyncio.run(self.ai_controller.unload_all_agents())
+                self.append_to_chat("System", "All agents unloaded (returned to dormant state)", "#f39c12")
+                self.update_agent_status()
+            except Exception as e:
+                self.append_to_chat("System", f"Error unloading agents: {e}", "#e74c3c")
+    
+    def run(self):
+        """Start the GUI"""
+        self.root.mainloop()
 
 def main():
+    """Main entry point"""
     root = tk.Tk()
     app = AITerminalGUI(root)
-    root.mainloop()
-
+    app.run()
 
 if __name__ == "__main__":
     main() 

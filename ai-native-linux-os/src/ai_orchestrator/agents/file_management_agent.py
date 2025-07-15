@@ -169,11 +169,11 @@ Be specific about folder names and file operations. Only suggest operations with
         try:
             # Yield control for other tasks
             await asyncio.sleep(0)
-            
+        
             # Match rule pattern
             handler = self.match_rule_pattern(task.command)
-            
-            if handler:
+        
+        if handler:
                 # Execute with safety checks
                 if self._requires_confirmation(task.command):
                     confirm = input(f"Confirm file operation: {task.command}? (y/n): ")
@@ -258,7 +258,7 @@ Be specific about folder names and file operations. Only suggest operations with
                 return await self._rule_find_duplicates(task.command)
             else:
                 return await self._rule_organize_files(task.command)  # Default
-                
+            
         except Exception as e:
             self.logger.error(f"LLM plan execution failed: {e}")
             return {
@@ -309,15 +309,15 @@ Be specific about folder names and file operations. Only suggest operations with
                 
                 # Move file
                 destination = category_folder / file_path.name
-                
+                        
                 # Handle name conflicts
-                counter = 1
+                        counter = 1
                 while destination.exists():
                     stem = file_path.stem
                     suffix = file_path.suffix
                     destination = category_folder / f"{stem}_{counter}{suffix}"
-                    counter += 1
-                
+                            counter += 1
+                        
                 if not self.config['dry_run']:
                     shutil.move(str(file_path), str(destination))
                     organized_count += 1
@@ -362,7 +362,7 @@ Be specific about folder names and file operations. Only suggest operations with
                     
                     if not self._is_safe_file(file_path):
                         continue
-                    
+                
                     file_size = file_path.stat().st_size
                     
                     if not self.config['dry_run']:
@@ -462,14 +462,14 @@ Be specific about folder names and file operations. Only suggest operations with
                         continue
                     
                     # Get file modification date
-                    mod_time = datetime.fromtimestamp(file_path.stat().st_mtime)
+                mod_time = datetime.fromtimestamp(file_path.stat().st_mtime)
                     year_month = mod_time.strftime('%Y-%m')
-                    
+                
                     # Create year-month folder
                     date_folder = target_path / year_month
                     date_folder.mkdir(exist_ok=True)
-                    
-                    # Move file
+                
+                # Move file
                     destination = date_folder / file_path.name
                     if not destination.exists() and not self.config['dry_run']:
                         shutil.move(str(file_path), str(destination))
@@ -499,7 +499,7 @@ Be specific about folder names and file operations. Only suggest operations with
             backup_name = f"backup_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
             backup_path = target_path.parent / backup_name
             backup_path.mkdir(exist_ok=True)
-            
+                
             backed_up_count = 0
             
             for file_path in target_path.rglob('*'):
@@ -622,7 +622,7 @@ Be specific about folder names and file operations. Only suggest operations with
     
     def get_stats(self) -> Dict:
         """Get agent statistics"""
-        return {
+            return {
             'agent': self.name,
             'stats': self.stats,
             'config': self.config,
@@ -668,7 +668,7 @@ if __name__ == "__main__":
         for test_case in test_cases:
             print(f"\nTesting: {test_case}")
             task = MockTask(test_case)
-            result = await agent.execute_task(task)
-            print(f"Result: {result}")
-    
+        result = await agent.execute_task(task)
+        print(f"Result: {result}")
+        
     asyncio.run(test_agent())
