@@ -12,6 +12,13 @@ import requests
 from pathlib import Path
 import GPUtil
 import re
+import time
+
+try:
+    import ollama
+    OLLAMA_AVAILABLE = True
+except ImportError:
+    OLLAMA_AVAILABLE = False
 
 
 class AIShellAssistant:
@@ -374,6 +381,93 @@ print('🎯 Try analyzing movie reviews, tweets, or customer feedback!')
         }
         return suggestions.get(current_project, ["Keep experimenting!", "Try a new AI project"])
     
+    def select_llm_model(self):
+        """Select the best LLM model based on available hardware"""
+        # Simple RAM-based selection (extend as needed)
+        try:
+            import psutil
+            ram_gb = psutil.virtual_memory().total / (1024 ** 3)
+        except ImportError:
+            ram_gb = 4  # Assume low RAM if psutil not available
+        if ram_gb >= 16:
+            return "llama3"
+        elif ram_gb >= 8:
+            return "phi3"
+        else:
+            return "tinyllm"
+
+    def llm_translate(self, user_input, context):
+        """Use Ollama (or other LLM) to translate natural language to shell command"""
+        model = self.select_llm_model()
+        prompt = f"""
+You are an AI Linux shell assistant. Translate the following user request into a safe, correct Linux shell command. Only output the command, nothing else.
+
+User: {user_input}
+
+Context: {json.dumps(context)}
+"""
+        if OLLAMA_AVAILABLE:
+            try:
+                response = ollama.generate(model=model, prompt=prompt, stream=False)
+                command = response['response'].strip().split('\n')[0]
+                return command
+            except Exception as e:
+                return None
+        # Fallback: None
+        return None
+
+    def load_conversation(self):
+        self.conversation_file = Path.home() / ".ai_shell_conversation.json"
+        if self.conversation_file.exists():
+            try:
+                with open(self.conversation_file, 'r') as f:
+                    self.conversation = json.load(f)
+            except:
+                self.conversation = []
+        else:
+            self.conversation = []
+
+    def save_conversation(self):
+        with open(self.conversation_file, 'w') as f:
+            json.dump(self.conversation, f)
+
+    def repl(self):
+        """Conversational REPL mode"""
+        self.load_conversation()
+        print("\n🦾 Welcome to the AI-Native Linux Conversational Shell!")
+        print("Type your requests in natural language. Type 'exit' or 'quit' to leave.\n")
+        while True:
+            try:
+                user_input = input("AI-Shell> ").strip()
+                if user_input.lower() in ("exit", "quit"):
+                    print("Goodbye!")
+                    break
+                if not user_input:
+                    continue
+                context = self.get_context()
+                context["conversation"] = self.conversation[-10:]  # last 10 turns
+                # Try LLM first
+                command = self.llm_translate(user_input, context)
+                if not command or command.startswith("#"):
+                    # Fallback to rule-based
+                    command = self.translate_natural_language(user_input)
+                explanation = self.explain_command(command)
+                print(f"\nSuggested command: {command}")
+                print(f"Explanation: {explanation}")
+                confirm = input("Execute this command? [y/N]: ").strip().lower()
+                if confirm == 'y':
+                    self.execute_command(command, confirm=False)
+                # Save turn to conversation
+                self.conversation.append({
+                    "user": user_input,
+                    "command": command,
+                    "timestamp": time.time(),
+                })
+                self.save_conversation()
+            except (KeyboardInterrupt, EOFError):
+                print("\nExiting AI Shell. Conversation saved.")
+                break
+
     def translate_natural_language(self, query):
         """Enhanced translation with beginner support"""
         context = self.get_context()
@@ -478,17 +572,22 @@ print('🎯 Try analyzing movie reviews, tweets, or customer feedback!')
 
 
 @click.command()
-@click.argument('query', nargs=-1, required=True)
+@click.argument('query', nargs=-1, required=False)
 @click.option('--execute', '-e', is_flag=True, help='Execute the command immediately')
 @click.option('--explain', '-x', is_flag=True, help='Only explain, don\'t execute')
 @click.option('--config', '-c', help='Configuration file path')
-def main(query, execute, explain, config):
+@click.option('--repl', is_flag=True, help='Start conversational REPL mode')
+def main(query, execute, explain, config, repl):
     """AI Shell Assistant - Translate natural language to shell commands"""
     assistant = AIShellAssistant(config)
+    if repl:
+        assistant.repl()
+        return
+    if not query:
+        click.echo("No query provided. Use --repl for conversational mode.")
+        return
     query_text = ' '.join(query)
-    
     command = assistant.translate_natural_language(query_text)
-    
     if explain:
         click.echo(f"Command: {command}")
         click.echo(f"Explanation: {assistant.explain_command(command)}")

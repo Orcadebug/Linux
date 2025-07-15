@@ -1,0 +1,12 @@
+[Desktop Entry]
+Name=AI Terminal
+Comment=Talk to your computer in plain English
+Exec=/usr/local/bin/ai-terminal
+Icon=utilities-terminal
+Terminal=false
+Type=Application
+Categories=System;Utility;
+Keywords=ai;terminal;assistant;computer;natural language;
+StartupNotify=true
+MimeType=
+StartupWMClass=AI Terminal GUI 
