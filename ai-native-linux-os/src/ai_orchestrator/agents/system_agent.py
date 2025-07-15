@@ -9,7 +9,7 @@ import os
 import time
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple, Callable, Any
 import psutil
 import signal
 
@@ -70,12 +70,13 @@ class SystemMetrics:
 class SystemAgent(BaseAgent):
     """Agent for system monitoring and health analysis"""
     
-    def __init__(self, agent_id: str, security_manager, config: Dict):
-        super().__init__(agent_id, security_manager, config)
+    def __init__(self, hardware_info: Dict, security_manager, logger):
+        super().__init__("system_agent", hardware_info, security_manager, logger)
         self.name = "System Agent"
         self.description = "Monitors hardware, analyzes system performance, and detects anomalies"
         
         # Monitoring configuration
+        config = hardware_info.get('config', {})
         self.monitoring_config = {
             "cpu_threshold": config.get('cpu_threshold', 80.0),
             "memory_threshold": config.get('memory_threshold', 85.0),
@@ -101,6 +102,195 @@ class SystemAgent(BaseAgent):
         self.baseline_established = False
         
         self.logger.info("System Agent initialized with monitoring capabilities")
+    
+    def _initialize_rule_patterns(self) -> Dict[str, Callable]:
+        """Initialize rule-based patterns for system monitoring tasks"""
+        return {
+            'monitor': self._rule_start_monitoring,
+            'check': self._rule_health_check,
+            'status': self._rule_get_status,
+            'cpu': self._rule_cpu_info,
+            'memory': self._rule_memory_info,
+            'disk': self._rule_disk_info,
+            'processes': self._rule_process_info,
+            'performance': self._rule_performance_check,
+            'temperature': self._rule_temperature_check,
+            'gpu': self._rule_gpu_info,
+            'optimize': self._rule_optimize_suggestions
+        }
+    
+    def _get_agent_description(self) -> str:
+        """Get agent-specific description for prompts"""
+        return """System monitoring and hardware diagnostics agent. I can:
+- Monitor CPU, memory, disk, and network usage
+- Detect performance anomalies and system issues
+- Provide hardware information and temperature readings
+- Suggest system optimizations
+- Track process performance and resource usage
+- Generate system health reports"""
+    
+    def _get_supported_operations(self) -> List[str]:
+        """Get list of operations this agent supports"""
+        return [
+            'start_monitoring',
+            'stop_monitoring',
+            'system_scan',
+            'performance_analysis',
+            'health_check',
+            'optimize_system',
+            'current_status',
+            'metrics_history',
+            'alerts',
+            'processes',
+            'system_info',
+            'anomalies'
+        ]
+    
+    async def _process_task_with_llm(self, task: Any) -> Dict:
+        """Process task using LLM for intelligent system analysis"""
+        try:
+            # Get current system status for context
+            system_status = await self._get_current_status()
+            
+            # Prepare context for LLM
+            context = {
+                'system_status': system_status,
+                'task_command': task.command if hasattr(task, 'command') else str(task),
+                'agent_capabilities': self._get_supported_operations()
+            }
+            
+            # Query LLM for intelligent response
+            prompt = f"""Analyze this system monitoring request: {task.command if hasattr(task, 'command') else str(task)}
+
+Current system status:
+- CPU: {system_status.get('cpu_percent', 0):.1f}%
+- Memory: {system_status.get('memory_percent', 0):.1f}%
+- Disk: {system_status.get('disk_percent', 0):.1f}%
+- Processes: {system_status.get('process_count', 0)}
+
+Provide specific recommendations or actions based on the current system state."""
+
+            llm_response = await self.query_llm(prompt, context)
+            
+            if llm_response:
+                # Parse LLM response and execute appropriate action
+                if 'monitor' in task.command.lower():
+                    result = await self.start_monitoring()
+                elif 'status' in task.command.lower():
+                    result = await self._get_current_status()
+                elif 'analyze' in task.command.lower() or 'performance' in task.command.lower():
+                    result = await self._analyze_performance(300)
+                elif 'health' in task.command.lower():
+                    result = await self._perform_health_check()
+                elif 'optimize' in task.command.lower():
+                    result = await self._suggest_optimizations()
+                else:
+                    result = await self._get_current_status()
+                
+                return {
+                    'success': True,
+                    'llm_analysis': llm_response,
+                    'system_data': result,
+                    'agent': 'system_agent'
+                }
+            else:
+                # Fallback to rule-based processing
+                return await self._process_task_with_rules(task)
+                
+        except Exception as e:
+            self.logger.error(f"Error processing task with LLM: {e}")
+            return await self._process_task_with_rules(task)
+    
+    async def _process_task_with_rules(self, task: Any) -> Dict:
+        """Process task using rule-based approach"""
+        try:
+            command = task.command if hasattr(task, 'command') else str(task)
+            command_lower = command.lower()
+            
+            # Match against rule patterns
+            for pattern, handler in self.rule_patterns.items():
+                if pattern in command_lower:
+                    return await handler(command)
+            
+            # Default to system status if no pattern matches
+            return await self._rule_get_status(command)
+            
+        except Exception as e:
+            self.logger.error(f"Error processing task with rules: {e}")
+            return {
+                'success': False,
+                'error': str(e),
+                'agent': 'system_agent'
+            }
+    
+    # Rule-based handlers
+    async def _rule_start_monitoring(self, command: str) -> Dict:
+        """Start system monitoring"""
+        result = await self.start_monitoring()
+        return {'success': True, 'action': 'monitoring_started', 'result': result}
+    
+    async def _rule_health_check(self, command: str) -> Dict:
+        """Perform health check"""
+        result = await self._perform_health_check()
+        return {'success': True, 'action': 'health_check', 'result': result}
+    
+    async def _rule_get_status(self, command: str) -> Dict:
+        """Get current system status"""
+        result = await self._get_current_status()
+        return {'success': True, 'action': 'system_status', 'result': result}
+    
+    async def _rule_cpu_info(self, command: str) -> Dict:
+        """Get CPU information"""
+        cpu_info = {
+            'cpu_percent': psutil.cpu_percent(interval=1),
+            'cpu_count': psutil.cpu_count(),
+            'cpu_freq': psutil.cpu_freq()._asdict() if psutil.cpu_freq() else None,
+            'load_avg': os.getloadavg()
+        }
+        return {'success': True, 'action': 'cpu_info', 'result': cpu_info}
+    
+    async def _rule_memory_info(self, command: str) -> Dict:
+        """Get memory information"""
+        memory = psutil.virtual_memory()
+        swap = psutil.swap_memory()
+        memory_info = {
+            'virtual_memory': memory._asdict(),
+            'swap_memory': swap._asdict()
+        }
+        return {'success': True, 'action': 'memory_info', 'result': memory_info}
+    
+    async def _rule_disk_info(self, command: str) -> Dict:
+        """Get disk information"""
+        disk_info = {
+            'disk_usage': psutil.disk_usage('/')._asdict(),
+            'disk_io': psutil.disk_io_counters()._asdict() if psutil.disk_io_counters() else None
+        }
+        return {'success': True, 'action': 'disk_info', 'result': disk_info}
+    
+    async def _rule_process_info(self, command: str) -> Dict:
+        """Get process information"""
+        processes = await self._get_top_processes()
+        return {'success': True, 'action': 'process_info', 'result': processes}
+    
+    async def _rule_performance_check(self, command: str) -> Dict:
+        """Perform performance analysis"""
+        result = await self._analyze_performance(60)
+        return {'success': True, 'action': 'performance_check', 'result': result}
+    
+    async def _rule_temperature_check(self, command: str) -> Dict:
+        """Check system temperatures"""
+        temps = await self._get_temperature_sensors()
+        return {'success': True, 'action': 'temperature_check', 'result': temps}
+    
+    async def _rule_gpu_info(self, command: str) -> Dict:
+        """Get GPU information"""
+        gpu_metrics = await self._get_gpu_metrics()
+        return {'success': True, 'action': 'gpu_info', 'result': gpu_metrics}
+    
+    async def _rule_optimize_suggestions(self, command: str) -> Dict:
+        """Get optimization suggestions"""
+        result = await self._suggest_optimizations()
+        return {'success': True, 'action': 'optimize_suggestions', 'result': result}
     
     async def start_monitoring(self):
         """Start continuous system monitoring"""
@@ -796,6 +986,175 @@ class SystemAgent(BaseAgent):
             return {"status": "success", "report": report}
         except Exception as e:
             return {"status": "failed", "error": str(e)}
+    
+    async def _perform_health_check(self) -> Dict:
+        """Perform comprehensive system health check"""
+        try:
+            health = {
+                'overall_score': 100,
+                'issues': [],
+                'recommendations': [],
+                'timestamp': datetime.now().isoformat()
+            }
+            
+            current_metrics = await self._collect_system_metrics()
+            
+            # CPU health
+            if current_metrics.cpu_percent > 80:
+                health['overall_score'] -= 20
+                health['issues'].append(f"High CPU usage: {current_metrics.cpu_percent:.1f}%")
+                health['recommendations'].append("Consider closing unnecessary applications or processes")
+            
+            # Memory health
+            if current_metrics.memory_percent > 85:
+                health['overall_score'] -= 25
+                health['issues'].append(f"High memory usage: {current_metrics.memory_percent:.1f}%")
+                health['recommendations'].append("Close memory-intensive applications or add more RAM")
+            
+            # Disk health
+            if current_metrics.disk_percent > 90:
+                health['overall_score'] -= 30
+                health['issues'].append(f"High disk usage: {current_metrics.disk_percent:.1f}%")
+                health['recommendations'].append("Clean up disk space or add more storage")
+            
+            # Process health
+            if current_metrics.process_count > 500:
+                health['overall_score'] -= 10
+                health['issues'].append(f"High process count: {current_metrics.process_count}")
+                health['recommendations'].append("Review running processes and close unnecessary ones")
+            
+            # Temperature health
+            for sensor_name, readings in current_metrics.temperature.items():
+                for reading in readings:
+                    if reading.get('current', 0) > 80:
+                        health['overall_score'] -= 15
+                        health['issues'].append(f"High temperature: {sensor_name} at {reading['current']}°C")
+                        health['recommendations'].append("Check cooling system and clean dust from fans")
+            
+            # GPU health
+            for gpu in current_metrics.gpu_metrics:
+                if gpu.get('gpu_memory_percent', 0) > 90:
+                    health['overall_score'] -= 15
+                    health['issues'].append(f"High GPU memory usage: {gpu['gpu_memory_percent']:.1f}%")
+                    health['recommendations'].append("Close GPU-intensive applications")
+            
+            # Network health (basic check)
+            if current_metrics.network_sent > 1000000000 or current_metrics.network_recv > 1000000000:  # 1GB/s
+                health['overall_score'] -= 5
+                health['issues'].append("High network activity detected")
+                health['recommendations'].append("Monitor network usage for potential issues")
+            
+            # Ensure score doesn't go below 0
+            health['overall_score'] = max(0, health['overall_score'])
+            
+            return health
+            
+        except Exception as e:
+            self.logger.error(f"Error in health check: {e}")
+            return {
+                'overall_score': 0,
+                'issues': [f"Health check failed: {str(e)}"],
+                'recommendations': ["Check system logs for errors"]
+            }
+    
+    async def _analyze_performance(self, duration: int = 300) -> Dict:
+        """Analyze system performance over a specified duration"""
+        try:
+            start_time = time.time()
+            performance_data = []
+            
+            self.logger.info(f"Starting performance analysis for {duration} seconds...")
+            
+            # Collect metrics over the duration
+            while time.time() - start_time < duration:
+                metrics = await self._collect_system_metrics()
+                performance_data.append(metrics)
+                await asyncio.sleep(10)  # Sample every 10 seconds
+            
+            if not performance_data:
+                return {"error": "No performance data collected"}
+            
+            # Analyze the collected data
+            analysis = {
+                'duration': duration,
+                'samples': len(performance_data),
+                'timestamp': datetime.now().isoformat(),
+                'cpu_analysis': self._analyze_cpu_performance(performance_data),
+                'memory_analysis': self._analyze_memory_performance(performance_data),
+                'disk_analysis': self._analyze_disk_performance(performance_data),
+                'network_analysis': self._analyze_network_performance(performance_data),
+                'overall_assessment': {}
+            }
+            
+            # Generate overall assessment
+            cpu_avg = analysis['cpu_analysis']['average']
+            memory_avg = analysis['memory_analysis']['average']
+            disk_avg = analysis['disk_analysis']['average']
+            
+            if cpu_avg > 80 or memory_avg > 85 or disk_avg > 90:
+                analysis['overall_assessment']['status'] = 'poor'
+                analysis['overall_assessment']['score'] = 30
+            elif cpu_avg > 60 or memory_avg > 70 or disk_avg > 80:
+                analysis['overall_assessment']['status'] = 'fair'
+                analysis['overall_assessment']['score'] = 60
+            else:
+                analysis['overall_assessment']['status'] = 'good'
+                analysis['overall_assessment']['score'] = 90
+            
+            return analysis
+            
+        except Exception as e:
+            self.logger.error(f"Error analyzing performance: {e}")
+            return {
+                'error': str(e),
+                'timestamp': datetime.now().isoformat()
+            }
+    
+    def _analyze_cpu_performance(self, data: List[SystemMetrics]) -> Dict:
+        """Analyze CPU performance from collected data"""
+        cpu_values = [m.cpu_percent for m in data]
+        return {
+            'average': sum(cpu_values) / len(cpu_values),
+            'maximum': max(cpu_values),
+            'minimum': min(cpu_values),
+            'samples_over_80': len([v for v in cpu_values if v > 80]),
+            'trend': 'increasing' if cpu_values[-1] > cpu_values[0] else 'decreasing'
+        }
+    
+    def _analyze_memory_performance(self, data: List[SystemMetrics]) -> Dict:
+        """Analyze memory performance from collected data"""
+        memory_values = [m.memory_percent for m in data]
+        return {
+            'average': sum(memory_values) / len(memory_values),
+            'maximum': max(memory_values),
+            'minimum': min(memory_values),
+            'samples_over_85': len([v for v in memory_values if v > 85]),
+            'trend': 'increasing' if memory_values[-1] > memory_values[0] else 'decreasing'
+        }
+    
+    def _analyze_disk_performance(self, data: List[SystemMetrics]) -> Dict:
+        """Analyze disk performance from collected data"""
+        disk_values = [m.disk_percent for m in data]
+        return {
+            'average': sum(disk_values) / len(disk_values),
+            'maximum': max(disk_values),
+            'minimum': min(disk_values),
+            'samples_over_90': len([v for v in disk_values if v > 90]),
+            'trend': 'stable'  # Disk usage typically doesn't change much in short periods
+        }
+    
+    def _analyze_network_performance(self, data: List[SystemMetrics]) -> Dict:
+        """Analyze network performance from collected data"""
+        sent_values = [m.network_sent for m in data if m.network_sent > 0]
+        recv_values = [m.network_recv for m in data if m.network_recv > 0]
+        
+        return {
+            'average_sent': sum(sent_values) / len(sent_values) if sent_values else 0,
+            'average_recv': sum(recv_values) / len(recv_values) if recv_values else 0,
+            'peak_sent': max(sent_values) if sent_values else 0,
+            'peak_recv': max(recv_values) if recv_values else 0,
+            'samples': len(data)
+        }
     
     async def get_status(self) -> Dict:
         """Get agent status"""
