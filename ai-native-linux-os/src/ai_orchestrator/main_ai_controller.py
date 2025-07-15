@@ -78,6 +78,7 @@ class MainAIController:
         # Control flags
         self.running = False
         self.emergency_stop = False
+        self.start_time = time.time()
         
         # Message routing
         self.message_router = {
@@ -381,6 +382,61 @@ class MainAIController:
                 "thread_alive": self.agent_threads.get(agent_name, {}).is_alive() if agent_name in self.agent_threads else False
             }
         return status
+    
+    async def get_system_status(self) -> Dict:
+        """Get comprehensive system status including agents, tasks, and hardware"""
+        try:
+            # Get agent status
+            agent_status = self.get_agent_status()
+            
+            # Get task statistics
+            task_stats = {
+                "total": len(self.tasks),
+                "pending": len([t for t in self.tasks.values() if t.status == TaskStatus.PENDING]),
+                "in_progress": len([t for t in self.tasks.values() if t.status == TaskStatus.IN_PROGRESS]),
+                "completed": len([t for t in self.tasks.values() if t.status == TaskStatus.COMPLETED]),
+                "failed": len([t for t in self.tasks.values() if t.status == TaskStatus.FAILED]),
+                "cancelled": len([t for t in self.tasks.values() if t.status == TaskStatus.CANCELLED])
+            }
+            
+            # Get hardware info if available
+            hardware_info = {}
+            try:
+                import psutil
+                hardware_info = {
+                    "cpu_percent": psutil.cpu_percent(interval=1),
+                    "memory_percent": psutil.virtual_memory().percent,
+                    "disk_usage": psutil.disk_usage('/').percent,
+                    "cpu_count": psutil.cpu_count(),
+                    "memory_total_gb": round(psutil.virtual_memory().total / (1024**3), 2),
+                    "memory_available_gb": round(psutil.virtual_memory().available / (1024**3), 2)
+                }
+            except ImportError:
+                hardware_info = {"error": "psutil not available"}
+            
+            # Get system status
+            system_status = {
+                "controller_running": self.running,
+                "emergency_stop": self.emergency_stop,
+                "active_agents": len([a for a in agent_status.values() if a.get("running", False)]),
+                "total_agents": len(self.agents),
+                "uptime": time.time() - getattr(self, 'start_time', time.time())
+            }
+            
+            return {
+                "system": system_status,
+                "agents": agent_status,
+                "tasks": task_stats,
+                "hardware": hardware_info,
+                "timestamp": time.time()
+            }
+            
+        except Exception as e:
+            self.logger.error(f"Error getting system status: {e}")
+            return {
+                "error": str(e),
+                "timestamp": time.time()
+            }
     
     def emergency_stop_all(self):
         """Emergency stop all agents and tasks"""
