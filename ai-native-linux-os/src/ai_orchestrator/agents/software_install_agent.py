@@ -62,8 +62,8 @@ class PackageManager:
 class SoftwareInstallAgent(BaseAgent):
     """Agent for handling complex software installations"""
     
-    def __init__(self, agent_id: str, security_manager, config: Dict):
-        super().__init__(agent_id, security_manager, config)
+    def __init__(self, hardware_info: Dict, security_manager, logger):
+        super().__init__("software_install_agent", hardware_info, security_manager, logger)
         self.name = "Software Installation Agent"
         self.description = "Handles complex software installations and dependency resolution"
         
@@ -83,6 +83,247 @@ class SoftwareInstallAgent(BaseAgent):
         self.env_backups = {}
         
         self.logger.info(f"Software Installation Agent initialized with {self.primary_manager}")
+    
+    def _initialize_rule_patterns(self) -> Dict[str, callable]:
+        """Initialize rule-based patterns for software installation"""
+        return {
+            'install': self._rule_install_software,
+            'remove': self._rule_remove_software,
+            'update': self._rule_update_software,
+            'search': self._rule_search_software,
+            'list': self._rule_list_installed,
+            'oracle': self._rule_install_oracle,
+            'java': self._rule_install_java,
+            'docker': self._rule_install_docker,
+            'nodejs': self._rule_install_nodejs,
+            'python': self._rule_install_python,
+            'dependencies': self._rule_install_dependencies,
+            'verify': self._rule_verify_installation,
+            'rollback': self._rule_rollback_installation
+        }
+    
+    def _get_agent_description(self) -> str:
+        """Get agent-specific description for prompts"""
+        return """Software installation and package management agent. I can:
+- Install complex software packages (Oracle, Java, Docker, Node.js, etc.)
+- Manage dependencies and resolve conflicts
+- Configure environment variables and system settings
+- Handle rollbacks and recovery from failed installations
+- Verify installations and check system compatibility
+- Manage multiple package managers (apt, yum, dnf, pacman, snap, etc.)
+- Perform pre-installation checks and post-installation setup"""
+    
+    def _get_supported_operations(self) -> List[str]:
+        """Get list of operations this agent supports"""
+        return [
+            'install_software',
+            'remove_software',
+            'update_software',
+            'search_software',
+            'list_installed',
+            'install_oracle',
+            'install_java',
+            'install_docker',
+            'install_nodejs',
+            'install_python',
+            'install_dependencies',
+            'verify_installation',
+            'rollback_installation',
+            'check_compatibility',
+            'manage_environment',
+            'create_rollback_point'
+        ]
+    
+    async def _process_task_with_llm(self, task) -> Dict:
+        """Process task using LLM for intelligent software installation"""
+        try:
+            # Get system information for context
+            system_info = {
+                'package_managers': self.package_managers,
+                'primary_manager': self.primary_manager,
+                'available_templates': list(self.install_templates.keys()),
+                'active_installations': len(self.active_installations)
+            }
+            
+            # Prepare context for LLM
+            context = {
+                'system_info': system_info,
+                'task_command': task.command if hasattr(task, 'command') else str(task),
+                'agent_capabilities': self._get_supported_operations()
+            }
+            
+            # Query LLM for intelligent response
+            prompt = f"""Analyze this software installation request: {task.command if hasattr(task, 'command') else str(task)}
+
+System information:
+- Primary package manager: {self.primary_manager}
+- Available package managers: {', '.join(self.package_managers.keys())}
+- Supported complex installations: {', '.join(self.install_templates.keys())}
+- Active installations: {len(self.active_installations)}
+
+Provide specific installation steps and recommendations."""
+
+            llm_response = await self.query_llm(prompt, context)
+            
+            if llm_response:
+                # Parse LLM response and execute appropriate action
+                command = task.command.lower() if hasattr(task, 'command') else str(task).lower()
+                
+                if any(soft in command for soft in ['oracle', 'java', 'docker', 'nodejs']):
+                    # Complex installation
+                    software = next((s for s in ['oracle', 'java', 'docker', 'nodejs'] if s in command), 'unknown')
+                    result = await self._install_from_template(software, 'latest', {})
+                elif 'install' in command:
+                    # Generic installation
+                    software = command.replace('install', '').strip()
+                    result = await self._install_generic_software(software, 'latest', {})
+                elif 'remove' in command or 'uninstall' in command:
+                    software = command.replace('remove', '').replace('uninstall', '').strip()
+                    result = await self._remove_software(software)
+                elif 'search' in command:
+                    query = command.replace('search', '').strip()
+                    result = await self._search_software(query)
+                elif 'list' in command:
+                    result = await self._list_installed_software()
+                else:
+                    result = await self._get_installation_status()
+                
+                return {
+                    'success': True,
+                    'llm_analysis': llm_response,
+                    'installation_data': result,
+                    'agent': 'software_install_agent'
+                }
+            else:
+                # Fallback to rule-based processing
+                return await self._process_task_with_rules(task)
+                
+        except Exception as e:
+            self.logger.error(f"Error processing task with LLM: {e}")
+            return await self._process_task_with_rules(task)
+    
+    async def _process_task_with_rules(self, task) -> Dict:
+        """Process task using rule-based approach"""
+        try:
+            command = task.command if hasattr(task, 'command') else str(task)
+            command_lower = command.lower()
+            
+            # Match against rule patterns
+            for pattern, handler in self.rule_patterns.items():
+                if pattern in command_lower:
+                    return await handler(command)
+            
+            # Default to installation status if no pattern matches
+            return await self._rule_get_status(command)
+            
+        except Exception as e:
+            self.logger.error(f"Error processing task with rules: {e}")
+            return {
+                'success': False,
+                'error': str(e),
+                'agent': 'software_install_agent'
+            }
+    
+    # Rule-based handlers
+    async def _rule_install_software(self, command: str) -> Dict:
+        """Install software using rule-based approach"""
+        # Extract software name from command
+        software = command.replace('install', '').strip()
+        if not software:
+            return {'success': False, 'error': 'No software specified'}
+        
+        result = await self._install_generic_software(software, 'latest', {})
+        return {'success': result.get('status') == 'completed', 'action': 'install_software', 'result': result}
+    
+    async def _rule_remove_software(self, command: str) -> Dict:
+        """Remove software"""
+        software = command.replace('remove', '').replace('uninstall', '').strip()
+        if not software:
+            return {'success': False, 'error': 'No software specified'}
+        
+        result = await self._remove_software(software)
+        return {'success': result.get('success', False), 'action': 'remove_software', 'result': result}
+    
+    async def _rule_update_software(self, command: str) -> Dict:
+        """Update software"""
+        result = await self._update_system_packages()
+        return {'success': result.get('success', False), 'action': 'update_software', 'result': result}
+    
+    async def _rule_search_software(self, command: str) -> Dict:
+        """Search for software"""
+        query = command.replace('search', '').strip()
+        if not query:
+            return {'success': False, 'error': 'No search query specified'}
+        
+        result = await self._search_software(query)
+        return {'success': result.get('success', False), 'action': 'search_software', 'result': result}
+    
+    async def _rule_list_installed(self, command: str) -> Dict:
+        """List installed software"""
+        result = await self._list_installed_software()
+        return {'success': result.get('success', False), 'action': 'list_installed', 'result': result}
+    
+    async def _rule_install_oracle(self, command: str) -> Dict:
+        """Install Oracle database"""
+        result = await self._install_from_template('oracle', 'latest', {})
+        return {'success': result.get('status') == 'completed', 'action': 'install_oracle', 'result': result}
+    
+    async def _rule_install_java(self, command: str) -> Dict:
+        """Install Java JDK"""
+        result = await self._install_from_template('java', 'latest', {})
+        return {'success': result.get('status') == 'completed', 'action': 'install_java', 'result': result}
+    
+    async def _rule_install_docker(self, command: str) -> Dict:
+        """Install Docker"""
+        result = await self._install_from_template('docker', 'latest', {})
+        return {'success': result.get('status') == 'completed', 'action': 'install_docker', 'result': result}
+    
+    async def _rule_install_nodejs(self, command: str) -> Dict:
+        """Install Node.js"""
+        result = await self._install_from_template('nodejs', 'latest', {})
+        return {'success': result.get('status') == 'completed', 'action': 'install_nodejs', 'result': result}
+    
+    async def _rule_install_python(self, command: str) -> Dict:
+        """Install Python"""
+        result = await self._install_generic_software('python3', 'latest', {})
+        return {'success': result.get('status') == 'completed', 'action': 'install_python', 'result': result}
+    
+    async def _rule_install_dependencies(self, command: str) -> Dict:
+        """Install dependencies"""
+        # Extract dependencies from command
+        deps = command.replace('dependencies', '').replace('install', '').strip().split()
+        if not deps:
+            return {'success': False, 'error': 'No dependencies specified'}
+        
+        result = await self._install_dependencies(deps)
+        return {'success': result.get('success', False), 'action': 'install_dependencies', 'result': result}
+    
+    async def _rule_verify_installation(self, command: str) -> Dict:
+        """Verify installation"""
+        software = command.replace('verify', '').strip()
+        if not software:
+            return {'success': False, 'error': 'No software specified for verification'}
+        
+        # Basic verification
+        result = await self._verify_software_installed(software)
+        return {'success': result.get('success', False), 'action': 'verify_installation', 'result': result}
+    
+    async def _rule_rollback_installation(self, command: str) -> Dict:
+        """Rollback installation"""
+        # Extract installation ID if provided
+        parts = command.split()
+        install_id = parts[-1] if len(parts) > 1 else None
+        
+        if install_id and install_id in self.rollback_points:
+            result = await self._rollback_installation(install_id, self.rollback_points[install_id])
+            return {'success': result.get('success', False), 'action': 'rollback_installation', 'result': result}
+        else:
+            return {'success': False, 'error': 'No valid installation ID provided or rollback point not found'}
+    
+    async def _rule_get_status(self, command: str) -> Dict:
+        """Get installation status"""
+        result = await self._get_installation_status()
+        return {'success': True, 'action': 'installation_status', 'result': result}
     
     def _load_install_templates(self) -> Dict:
         """Load installation templates for complex software"""
@@ -779,6 +1020,183 @@ class SoftwareInstallAgent(BaseAgent):
             'primary_manager': self.primary_manager
         })
         return status
+    
+    async def _remove_software(self, software: str) -> Dict:
+        """Remove software using the primary package manager"""
+        try:
+            if not self.primary_manager:
+                return {'success': False, 'error': 'No package manager available'}
+            
+            # Command mapping for different package managers
+            remove_commands = {
+                'apt': f'sudo apt remove -y {software}',
+                'yum': f'sudo yum remove -y {software}',
+                'dnf': f'sudo dnf remove -y {software}',
+                'pacman': f'sudo pacman -R --noconfirm {software}',
+                'homebrew': f'brew uninstall {software}'
+            }
+            
+            cmd = remove_commands.get(self.primary_manager, f'sudo {self.primary_cmd} remove -y {software}')
+            result = await self._run_command_async(cmd)
+            
+            return {
+                'success': result['success'],
+                'software': software,
+                'manager': self.primary_manager,
+                'error': result.get('error') if not result['success'] else None
+            }
+            
+        except Exception as e:
+            return {'success': False, 'error': str(e)}
+    
+    async def _update_system_packages(self) -> Dict:
+        """Update system packages using the primary package manager"""
+        try:
+            if not self.primary_manager:
+                return {'success': False, 'error': 'No package manager available'}
+            
+            # Command mapping for different package managers
+            update_commands = {
+                'apt': 'sudo apt update && sudo apt upgrade -y',
+                'yum': 'sudo yum update -y',
+                'dnf': 'sudo dnf update -y',
+                'pacman': 'sudo pacman -Syu --noconfirm',
+                'homebrew': 'brew update && brew upgrade'
+            }
+            
+            cmd = update_commands.get(self.primary_manager, f'sudo {self.primary_cmd} update -y')
+            result = await self._run_command_async(cmd)
+            
+            return {
+                'success': result['success'],
+                'manager': self.primary_manager,
+                'error': result.get('error') if not result['success'] else None
+            }
+            
+        except Exception as e:
+            return {'success': False, 'error': str(e)}
+    
+    async def _search_software(self, query: str) -> Dict:
+        """Search for software packages"""
+        try:
+            if not self.primary_manager:
+                return {'success': False, 'error': 'No package manager available'}
+            
+            # Command mapping for different package managers
+            search_commands = {
+                'apt': f'apt search {query}',
+                'yum': f'yum search {query}',
+                'dnf': f'dnf search {query}',
+                'pacman': f'pacman -Ss {query}',
+                'homebrew': f'brew search {query}'
+            }
+            
+            cmd = search_commands.get(self.primary_manager, f'{self.primary_cmd} search {query}')
+            result = await self._run_command_async(cmd)
+            
+            return {
+                'success': result['success'],
+                'query': query,
+                'manager': self.primary_manager,
+                'results': result.get('output', '').split('\n')[:20],  # Limit to 20 results
+                'error': result.get('error') if not result['success'] else None
+            }
+            
+        except Exception as e:
+            return {'success': False, 'error': str(e)}
+    
+    async def _list_installed_software(self) -> Dict:
+        """List installed software packages"""
+        try:
+            if not self.primary_manager:
+                return {'success': False, 'error': 'No package manager available'}
+            
+            # Command mapping for different package managers
+            list_commands = {
+                'apt': 'apt list --installed',
+                'yum': 'yum list installed',
+                'dnf': 'dnf list installed',
+                'pacman': 'pacman -Q',
+                'homebrew': 'brew list'
+            }
+            
+            cmd = list_commands.get(self.primary_manager, f'{self.primary_cmd} list installed')
+            result = await self._run_command_async(cmd)
+            
+            return {
+                'success': result['success'],
+                'manager': self.primary_manager,
+                'packages': result.get('output', '').split('\n')[:50],  # Limit to 50 packages
+                'error': result.get('error') if not result['success'] else None
+            }
+            
+        except Exception as e:
+            return {'success': False, 'error': str(e)}
+    
+    async def _verify_software_installed(self, software: str) -> Dict:
+        """Verify if software is installed"""
+        try:
+            # Try to find the software in PATH
+            which_result = await self._run_command_async(f'which {software}')
+            if which_result['success']:
+                return {
+                    'success': True,
+                    'software': software,
+                    'installed': True,
+                    'path': which_result.get('output', '').strip()
+                }
+            
+            # Try version command
+            version_result = await self._run_command_async(f'{software} --version')
+            if version_result['success']:
+                return {
+                    'success': True,
+                    'software': software,
+                    'installed': True,
+                    'version': version_result.get('output', '').strip()
+                }
+            
+            # Check with package manager
+            if self.primary_manager:
+                check_commands = {
+                    'apt': f'dpkg -l | grep {software}',
+                    'yum': f'yum list installed | grep {software}',
+                    'dnf': f'dnf list installed | grep {software}',
+                    'pacman': f'pacman -Q | grep {software}',
+                    'homebrew': f'brew list | grep {software}'
+                }
+                
+                cmd = check_commands.get(self.primary_manager, f'{self.primary_cmd} list installed | grep {software}')
+                check_result = await self._run_command_async(cmd)
+                
+                return {
+                    'success': True,
+                    'software': software,
+                    'installed': check_result['success'],
+                    'package_info': check_result.get('output', '').strip() if check_result['success'] else None
+                }
+            
+            return {
+                'success': True,
+                'software': software,
+                'installed': False,
+                'error': 'Software not found'
+            }
+            
+        except Exception as e:
+            return {'success': False, 'error': str(e)}
+    
+    async def _get_installation_status(self) -> Dict:
+        """Get current installation status"""
+        return {
+            'success': True,
+            'active_installations': len(self.active_installations),
+            'installation_history': len(self.installation_history),
+            'primary_manager': self.primary_manager,
+            'available_managers': list(self.package_managers.keys()),
+            'supported_templates': list(self.install_templates.keys()),
+            'rollback_points': len(self.rollback_points)
+        }
     
     async def cleanup(self):
         """Cleanup agent resources"""
