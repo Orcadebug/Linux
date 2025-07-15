@@ -33,7 +33,30 @@ ai-native-linux-os/
 
 ## Quick Start
 
-### Option 1: Visual Interface (Recommended for Beginners)
+### 🚀 One-Line Install (Recommended)
+
+Install everything in one command (requires `sudo`):
+
+```bash
+curl -sSL https://raw.githubusercontent.com/Orcadebug/Linux/main/ai-native-linux-os/install.sh | sudo bash
+```
+
+This installs:
+- System dependencies and Python environment
+- Ollama LLM server and models
+- AI components and mixture of agents
+- Command-line tools (`ai`, `ai-terminal`, `quest`)
+- Background systemd services
+- Desktop integration
+
+After installation, try:
+```bash
+ai "list my files"           # Natural language commands
+ai-terminal                  # Launch GUI interface
+quest commands --recent      # View command history
+```
+
+### Option 1: Visual Interface (Manual Install)
 
 1. **Clone the repository:**
    ```bash

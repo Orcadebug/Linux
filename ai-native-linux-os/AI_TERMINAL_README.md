@@ -14,7 +14,19 @@ A minimalist, beginner-friendly GUI application that lets you control your compu
 
 ## 🚀 Quick Start
 
-### Option 1: System-Wide Installation (Recommended)
+### 🎯 One-Line Install (Recommended)
+```bash
+curl -sSL https://raw.githubusercontent.com/Orcadebug/Linux/main/ai-native-linux-os/install.sh | sudo bash
+```
+
+This installs the complete AI-Native Linux OS including the AI Terminal GUI, background services, and command-line tools. After installation:
+
+```bash
+ai-terminal                  # Launch GUI
+ai "show me my files"        # Use CLI
+```
+
+### Option 1: System-Wide Installation (Alternative)
 ```bash
 # Install system-wide (requires sudo)
 sudo ./scripts/install-ai-terminal.sh
@@ -23,7 +35,7 @@ sudo ./scripts/install-ai-terminal.sh
 ai-terminal
 ```
 
-### Option 2: Direct Launch
+### Option 2: Direct Launch (Development)
 ```bash
 # Install dependencies first
 pip3 install -r requirements.txt
