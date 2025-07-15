@@ -60,13 +60,13 @@ check_dependencies() {
         exit 1
     fi
     
-    local python_version=$(python3 -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')")
-    if [[ $(echo "$python_version < 3.7" | bc -l) -eq 1 ]]; then
-        error "Python 3.7+ is required. Found Python $python_version"
+    python3 -c 'import sys; exit(0) if sys.version_info >= (3,7) else exit(1)'
+    if [[ $? -ne 0 ]]; then
+        error "Python 3.7+ is required. Found Python $(python3 --version)"
         exit 1
     fi
     
-    success "Python $python_version found"
+    success "$(python3 --version) found"
     
     # Check virtual environment
     if [[ ! -d "$PROJECT_ROOT/venv" ]] && [[ ! -d "$PROJECT_ROOT/.venv" ]]; then
